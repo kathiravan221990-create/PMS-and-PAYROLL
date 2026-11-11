@@ -1,0 +1,6 @@
+-- PMS 08: per job-spec component stock tracking switch (LID / BOTTOM / TAGGER). CAN is always tracked.
+-- Default: tracked once an opening balance exists or it has been recorded as made; Admin/Manager can override.
+-- Objects: core permission 'tracking_edit'; table pms.stock_tracking (RLS forced, no grants);
+-- pms.is_tracked(spec, comp); pms_api.stock_summary() (adds tracked + 'Negative - check' flag);
+-- pms_api.tracking_list(); pms_api.tracking_set(spec, comp, tracked).
+-- Applied live as Supabase migration pms_08_stock_tracking_switch.
