@@ -1,0 +1,134 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CP PMS — Production Management</title>
+<style>
+:root{--bg:#07173a;--bg2:#0b2250;--panel:#0f2d63;--panel2:#143a78;--gold:#d9b341;--gold2:#f0cf6a;--cell:#e4eefb;--cell2:#d4e4f7;--ink:#0a1530;--lt:#e8eefc;--line:#8fb0da;--ok:#0b6b3a;--bad:#a4161a;--warn:#8a5200}
+*{box-sizing:border-box}body{margin:0;font:14px/1.4 Segoe UI,system-ui,sans-serif;background:var(--bg);color:var(--lt)}
+.layout{display:flex;min-height:100vh}
+aside{width:228px;background:var(--bg2);border-right:1px solid #1d3f80;padding:14px 10px;flex:none}
+.brand{font-weight:700;color:var(--gold2);letter-spacing:.5px;padding:4px 8px 12px;border-bottom:1px solid #1d3f80;margin-bottom:8px}
+.brand small{display:block;color:#9fb4de;font-weight:400;font-size:11px}
+.grp{font-size:10.5px;letter-spacing:1.2px;color:var(--gold);margin:12px 8px 4px;text-transform:uppercase}
+aside a{display:block;padding:7px 10px;border-radius:7px;color:var(--lt);cursor:pointer;text-decoration:none}
+aside a:hover{background:var(--panel)}aside a.on{background:var(--gold);color:#1a1400;font-weight:600}
+aside a.soon{opacity:.55}
+main{flex:1;padding:18px 22px;min-width:0}
+h1{margin:0 0 4px;font-size:21px;color:var(--gold2)}.sub{color:#9fb4de;margin:0 0 14px}
+.card{background:var(--panel);border:1px solid #1d3f80;border-radius:10px;padding:14px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:14px;color:var(--gold2)}
+.grid{display:grid;gap:10px}.g4{grid-template-columns:repeat(4,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}.g6{grid-template-columns:repeat(6,1fr)}
+label{display:block;font-size:11.5px;color:#b9c9ea;margin-bottom:3px}
+input,select{width:100%;padding:7px 8px;border-radius:6px;border:1px solid var(--line);background:var(--cell);color:var(--ink);font:inherit}
+input[readonly]{background:#c3d3ea;color:#2a3a5c}
+.btn{background:var(--gold);color:#1a1400;border:0;border-radius:7px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn.sec{background:transparent;color:var(--gold2);border:1px solid var(--gold)}
+.mini{background:transparent;border:1px dashed var(--gold);color:var(--gold2);border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer;margin-top:3px}
+.note{font-size:11.5px;color:#9fb4de;margin-top:3px}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11.5px;font-weight:600}
+.st-Instock{background:#d7f0e0;color:#0b6b3a}.st-WIP{background:#fde9c4;color:#8a5200}.st-Used{background:#e3e6ee;color:#35405a}.st-Moved,.st-Closed{background:#e1dcf6;color:#41307d}
+.new{background:#d7f0e0;color:#0b6b3a}.upd{background:#fde9c4;color:#8a5200}
+table{width:100%;border-collapse:collapse;background:var(--cell);color:var(--ink);border-radius:8px;overflow:hidden}
+th{background:#1d3f80;color:#fff;text-align:left;padding:7px 8px;font-size:12px;white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid #b5c8e6;font-size:13px}tr:hover td{background:var(--cell2)}
+.tw{overflow:auto;max-height:340px;border-radius:8px}
+.stat{background:var(--panel2);border-radius:9px;padding:10px 12px}.stat b{display:block;font-size:22px;color:var(--gold2)}.stat span{font-size:11.5px;color:#b9c9ea}
+.jobid{font:600 13px Consolas,monospace;color:#1a1400;background:var(--gold2);padding:6px 10px;border-radius:6px;display:inline-block}
+.toggle{display:inline-flex;border:1px solid var(--gold);border-radius:7px;overflow:hidden}.toggle button{background:transparent;color:var(--gold2);border:0;padding:6px 12px;cursor:pointer}.toggle button.on{background:var(--gold);color:#1a1400;font-weight:600}
+.hide{display:none}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.sp{flex:1}
+.drop{border:2px dashed var(--gold);border-radius:10px;padding:26px;text-align:center;color:var(--gold2);background:#0b2250}
+</style></head><body>
+<div class="layout"><aside id="nav"></aside><main id="main"></main></div>
+<script>
+/* ---------- sample data (layout only; later replaced by Supabase RPC) ---------- */
+const MOCK={
+ so:[{id:1,so:'2500154',date:'2025-05-07',vendor:'CONNEDIT BUSINESS SOLUTIONS PRIVATE LIMITED',variant:'SALTED CASHEW TINS',colour:'PRINTED',desc:'115 MM X 95 MM X 27 MM (HT) - SALTED CASHEW TINS',qty:700000,sent:420000},
+     {id:2,so:'2500154',date:'2025-05-07',vendor:'CONNEDIT BUSINESS SOLUTIONS PRIVATE LIMITED',variant:'ALMOND TINS',colour:'PRINTED',desc:'101 MM DIA X 25 MM (HT) - ALMOND TINS',qty:300000,sent:120000},
+     {id:3,so:'2501792',date:'2025-12-04',vendor:'CONNEDIT BUSINESS SOLUTIONS PRIVATE LIMITED',variant:'INDIGO',colour:'PRINTED',desc:'SALTED CASHEW NUTS TIN JAR 50G - INDIGO',qty:400000,sent:0},
+     {id:4,so:'2600310',date:'2026-06-18',vendor:'CARATLANE TRADING PVT LTD - MH',variant:'CARATLANE',colour:'PRINTED',desc:'WALLET 27MM MANUAL',qty:150000,sent:37000}],
+ shapes:{'RECTANGLE':{'WALLET 27MM AUTO':['115x95x27'],'WALLET 27MM MANUAL':['115x95x50','80x40x27']},'ROUND':{'101 DIA SLIP LID':['101x25']},'SQUARE':{'BUSH 65MM':['65X65X55']}},
+ vendors:{'CONNEDIT BUSINESS SOLUTIONS PRIVATE LIMITED':['SALTED CASHEW TINS','ALMOND TINS','INDIGO'],'LBN INDUSTRIES':['PRINTED TIN'],'CARATLANE TRADING PVT LTD - MH':['CARATLANE']},
+ colours:['PRINTED','COLOR','GOLD','CLEAR'],
+ skids:[{no:'BOD/JUL/26/001',date:'2026-07-01',so:'',vendor:'LBN INDUSTRIES',variant:'PRINTED TIN',job:'BUSH 65MM',spec:'65X65X55',net:1176,nos:872,status:'Used'},
+        {no:'BOD/NOV/26/014',date:'2026-11-09',so:'2600310',vendor:'CARATLANE TRADING PVT LTD - MH',variant:'CARATLANE',job:'WALLET 27MM MANUAL',spec:'115x95x50',net:1210,nos:897,status:'Instock'},
+        {no:'BOD/NOV/26/015',date:'2026-11-10',so:'2500154',vendor:'CONNEDIT BUSINESS SOLUTIONS PRIVATE LIMITED',variant:'ALMOND TINS',job:'101 DIA SLIP LID',spec:'101x25',net:1190,nos:880,status:'WIP'}]
+};
+const NAVS=[['SCM',[['so','Sale Order (drop)'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['quality','Quality'],['carton','Carton & Alum/Tape']]],
+ ['Production',[['slitting','Slitting'],['production','Production']]],['HR',[['manpower','Manpower']]],
+ ['Reports',[['skids','Skid details'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['datalog','Data log']]],
+ ['Admin',[['masters','Masters'],['rules','Rules']]]];
+const LIVE=['so','inward'];
+let view='so',soRows=[],skids=MOCK.skids.slice();
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function nav(){$('#nav').innerHTML=`<div class="brand">CP PMS<small>Classic Pack Pvt Ltd</small></div>`+NAVS.map(([g,a])=>`<div class="grp">${g}</div>`+a.map(([k,t])=>`<a data-v="${k}" class="${k==view?'on':''} ${LIVE.includes(k)?'':'soon'}">${t}</a>`).join('')).join('');
+ document.querySelectorAll('#nav a').forEach(a=>a.onclick=()=>{view=a.dataset.v;nav();render()})}
+function render(){const f=V[view]||V.soon;$('#main').innerHTML=f();if(f.init)f.init()}
+const V={};
+V.soon=()=>`<h1>${esc(view)}</h1><p class="sub">Layout comes in the next batch.</p>`;
+
+/* ---------------- Sale Order drop ---------------- */
+V.so=()=>`<h1>Sale Order — drop the sheet</h1>
+<p class="sub">Drop the Sale Order sheet here. Entry screens then pick a Sale Order and take Vendor, Variant, Colour and quantity from it. Re-dropping updates quantity and status; nothing is duplicated.</p>
+<div class="card"><div class="drop" id="dz">Drop the Sale Order Excel here, or <button class="btn" id="pick">Choose file</button> <button class="btn sec" id="demo">Load sample</button><input type="file" id="fl" class="hide" accept=".xlsx,.xls,.xlsm"></div></div>
+<div id="prev"></div>
+<div class="card"><h3>Dropped Sale Orders</h3><div class="row" style="margin-bottom:8px"><div><label>Search SO / vendor / variant</label><input id="q" placeholder="type to filter"></div><div><label>Show</label><select id="qs"><option>Open only</option><option>All</option></select></div></div>
+<div class="tw"><table><thead><tr><th>SO No</th><th>Date</th><th>Vendor</th><th>Variant</th><th>Colour</th><th>Description</th><th>Sale qty</th><th>Dispatched</th><th>Pending</th></tr></thead><tbody id="sob"></tbody></table></div></div>`;
+V.so.init=()=>{const draw=()=>{const t=$('#q').value.toLowerCase();$('#sob').innerHTML=MOCK.so.filter(r=>!t||(r.so+r.vendor+r.variant).toLowerCase().includes(t)).map(r=>`<tr><td>${r.so}</td><td>${r.date}</td><td>${esc(r.vendor)}</td><td>${esc(r.variant)}</td><td>${r.colour}</td><td>${esc(r.desc)}</td><td>${r.qty.toLocaleString()}</td><td>${r.sent.toLocaleString()}</td><td><b>${(r.qty-r.sent).toLocaleString()}</b></td></tr>`).join('')};draw();$('#q').oninput=draw;
+ $('#pick').onclick=()=>$('#fl').click();
+ $('#demo').onclick=()=>{$('#prev').innerHTML=`<div class="card"><h3>Preview before saving</h3><div class="row"><div class="stat"><b>301</b><span>lines in sheet</span></div><div class="stat"><b>12</b><span>new lines</span></div><div class="stat"><b>3</b><span>updated (qty / status)</span></div><div class="stat"><b>2</b><span>new vendors added to list</span></div><div class="stat"><b>4</b><span>new variants added to list</span></div></div>
+ <div class="tw" style="margin-top:10px"><table><thead><tr><th>Action</th><th>SO No</th><th>Vendor</th><th>Variant</th><th>Sale qty</th></tr></thead><tbody>
+ <tr><td><span class="pill new">NEW</span></td><td>2600455</td><td>LAKSHMI FOODS</td><td>MIXTURE TIN</td><td>50,000</td></tr>
+ <tr><td><span class="pill new">NEW</span></td><td>2600456</td><td>NEW VENDOR TRADERS <span class="pill upd">new vendor</span></td><td>GIFT BOX <span class="pill upd">new variant</span></td><td>20,000</td></tr>
+ <tr><td><span class="pill upd">UPDATE</span></td><td>2500154</td><td>CONNEDIT BUSINESS SOLUTIONS PRIVATE LIMITED</td><td>ALMOND TINS</td><td>300,000 → 310,000</td></tr></tbody></table></div>
+ <div class="row" style="margin-top:10px"><button class="btn">Save to PMS</button><button class="btn sec" onclick="document.querySelector('#prev').innerHTML=''">Cancel</button><span class="note">Vendor names that look like an existing vendor (spelling or spacing) are joined to it automatically.</span></div></div>`}};
+
+/* ---------------- Inward ---------------- */
+V.inward=()=>{const sh=Object.keys(MOCK.shapes);return `<h1>Inward — skid entry</h1>
+<p class="sub">Pick the Sale Order: Vendor, Variant and Colour fill in by themselves. Choose only Shape, Job Name and Job Spec.</p>
+<div class="card"><div class="row"><h3 style="margin:0">New skid</h3><div class="toggle" id="mode"><button class="on" data-m="so">With Sale Order</button><button data-m="stock">Stock (no Sale Order)</button></div></div>
+<div class="grid g4" style="margin-top:10px">
+<div><label>Date</label><input type="date" id="d" value="2026-11-11"></div>
+<div><label>Skid No</label><input id="sk" placeholder="BOD/NOV/26/016"></div>
+<div><label>DC No</label><input id="dc"></div>
+<div><label>Received from</label><select id="rf"><option>THINDIVANAM</option><option>PONDY</option><option>CHENNAI</option></select></div>
+</div>
+<div id="soBox" class="grid g4" style="margin-top:10px">
+<div style="grid-column:span 2"><label>Sale Order</label><select id="so"><option value="">— pick Sale Order —</option>${MOCK.so.map(r=>`<option value="${r.id}">${r.so} · ${esc(r.variant)} · ${esc(r.vendor.slice(0,28))} · pending ${(r.qty-r.sent).toLocaleString()}</option>`).join('')}</select></div>
+<div><label>Colour</label><input id="col" readonly></div><div><label>Pending qty</label><input id="pq" readonly></div>
+<div style="grid-column:span 2"><label>Vendor (from Sale Order)</label><input id="ve" readonly></div><div><label>Variant (from Sale Order)</label><input id="va" readonly></div><div><label>Sale qty</label><input id="sq" readonly></div></div>
+<div id="stBox" class="grid g4 hide" style="margin-top:10px">
+<div><label>Vendor</label><select id="sv"><option value="">— pick —</option>${Object.keys(MOCK.vendors).map(v=>`<option>${esc(v)}</option>`).join('')}<option value="__new">+ Enter manually…</option></select><input id="svn" class="hide" placeholder="type vendor name"><div class="note hide" id="svnote">Will be added to the vendor list automatically.</div></div>
+<div><label>Variant</label><select id="sva"><option value="">— pick vendor first —</option></select><input id="svan" class="hide" placeholder="type variant"></div>
+<div><label>Colour</label><select id="scol">${MOCK.colours.map(c=>`<option>${c}</option>`).join('')}</select></div>
+<div><label>Reason (no Sale Order)</label><input id="rs" placeholder="e.g. advance stock"></div></div>
+<div class="grid g4" style="margin-top:10px">
+<div><label>Shape</label><select id="sh"><option value="">— pick —</option>${sh.map(s=>`<option>${s}</option>`).join('')}</select></div>
+<div><label>Job Name</label><select id="jb" disabled><option value="">— pick shape first —</option></select><button class="mini hide" id="njb">+ new job</button></div>
+<div><label>Job Spec</label><select id="sp" disabled><option value="">— pick job first —</option></select><button class="mini hide" id="nsp">+ new spec</button></div>
+<div><label>Job ID (auto)</label><div class="jobid" id="jid">—</div></div></div>
+<div class="grid g6" style="margin-top:10px">
+<div><label>Components in skid</label><select id="cm"><option>BODY</option><option>LID</option><option>BOTTOM</option><option>BODY,LID</option></select></div>
+<div><label>Gross wt (kg)</label><input type="number" id="gw"></div><div><label>Net wt (kg)</label><input type="number" id="nw"></div>
+<div><label>Sheet L</label><input type="number" id="L"></div><div><label>Sheet B</label><input type="number" id="B"></div><div><label>Thickness W</label><input type="number" step="0.01" id="W"></div></div>
+<div class="grid g4" style="margin-top:10px"><div><label>Single sheet wt kg (auto)</label><input id="ss" readonly></div><div><label>Weight in Nos (auto)</label><input id="wn" readonly></div><div></div><div style="align-self:end"><button class="btn" id="save">Save skid</button></div></div>
+</div>
+<div class="card"><div class="row"><h3 style="margin:0">Skids</h3><span class="sp"></span><div class="toggle" id="sf"><button class="on" data-s="">All</button><button data-s="Instock">Instock</button><button data-s="WIP">WIP</button><button data-s="Used">Used</button></div></div>
+<div class="tw" style="margin-top:8px"><table><thead><tr><th>Skid No</th><th>Date</th><th>SO</th><th>Vendor</th><th>Variant</th><th>Job</th><th>Spec</th><th>Net kg</th><th>Nos</th><th>Status</th></tr></thead><tbody id="skb"></tbody></table></div></div>`};
+V.inward.init=()=>{let mode='so',fs='';
+ const sel=(id,opts,ph)=>{$(id).innerHTML=`<option value="">${ph}</option>`+opts.map(o=>`<option>${esc(o)}</option>`).join('')};
+ const jid=()=>{const s=$('#sh').value,j=$('#jb').value,p=$('#sp').value;$('#jid').textContent=(s&&j&&p)?(s.slice(0,2)+'-'+$('#col').value.slice(0,2)+'-VEND-VAR-'+j.replace(/[^A-Z0-9]/gi,'').toUpperCase()+'-'+p.replace(/[^A-Z0-9]/gi,'').toUpperCase()):'—'};
+ const calc=()=>{const L=+$('#L').value,B=+$('#B').value,W=+$('#W').value,n=+$('#nw').value;const ss=L&&B&&W?L*B*W*7.85/1e6:0;$('#ss').value=ss?ss.toFixed(4):'';$('#wn').value=ss&&n?(n/ss).toFixed(1):''};
+ ['#L','#B','#W','#nw'].forEach(i=>$(i).oninput=calc);
+ document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{mode=b.dataset.m;document.querySelectorAll('#mode button').forEach(x=>x.classList.toggle('on',x==b));$('#soBox').classList.toggle('hide',mode!='so');$('#stBox').classList.toggle('hide',mode!='stock')});
+ $('#so').onchange=()=>{const r=MOCK.so.find(x=>x.id==$('#so').value);$('#ve').value=r?r.vendor:'';$('#va').value=r?r.variant:'';$('#col').value=r?r.colour:'';$('#sq').value=r?r.qty.toLocaleString():'';$('#pq').value=r?(r.qty-r.sent).toLocaleString():'';jid()};
+ $('#sv').onchange=()=>{const v=$('#sv').value,nw=v=='__new';$('#svn').classList.toggle('hide',!nw);$('#svnote').classList.toggle('hide',!nw);if(nw){$('#sva').innerHTML='<option value="__new">+ Enter manually…</option>';$('#svan').classList.remove('hide')}else{sel('#sva',(MOCK.vendors[v]||[]),'— pick —');$('#sva').insertAdjacentHTML('beforeend','<option value="__new">+ Enter manually…</option>');$('#svan').classList.add('hide')}};
+ $('#sva').onchange=()=>$('#svan').classList.toggle('hide',$('#sva').value!='__new');
+ $('#sh').onchange=()=>{const s=$('#sh').value;$('#jb').disabled=!s;sel('#jb',Object.keys(MOCK.shapes[s]||{}),'— pick —');$('#njb').classList.toggle('hide',!s);$('#sp').disabled=true;sel('#sp',[],'— pick job first —');jid()};
+ $('#jb').onchange=()=>{const j=$('#jb').value;$('#sp').disabled=!j;sel('#sp',(MOCK.shapes[$('#sh').value]||{})[j]||[],'— pick —');$('#nsp').classList.toggle('hide',!j);jid()};
+ $('#sp').onchange=jid;
+ $('#njb').onclick=()=>{const n=prompt('New Job Name');if(n){const s=$('#sh').value;MOCK.shapes[s][n.toUpperCase()]=[];$('#sh').onchange();$('#jb').value=n.toUpperCase();$('#jb').onchange()}};
+ $('#nsp').onclick=()=>{const n=prompt('New Job Spec');if(n){const s=$('#sh').value,j=$('#jb').value;MOCK.shapes[s][j].push(n.toUpperCase());$('#jb').onchange();$('#sp').value=n.toUpperCase();jid()}};
+ const draw=()=>{$('#skb').innerHTML=skids.filter(r=>!fs||r.status==fs).map(r=>`<tr><td><b>${r.no}</b></td><td>${r.date}</td><td>${r.so||'—'}</td><td>${esc(r.vendor)}</td><td>${esc(r.variant)}</td><td>${esc(r.job)}</td><td>${esc(r.spec)}</td><td>${r.net}</td><td>${r.nos}</td><td><span class="pill st-${r.status}">${r.status}</span></td></tr>`).join('')};draw();
+ document.querySelectorAll('#sf button').forEach(b=>b.onclick=()=>{fs=b.dataset.s;document.querySelectorAll('#sf button').forEach(x=>x.classList.toggle('on',x==b));draw()});
+ $('#save').onclick=()=>{const r=MOCK.so.find(x=>x.id==$('#so').value);skids.unshift({no:$('#sk').value||'(new)',date:$('#d').value,so:r?r.so:'',vendor:r?r.vendor:($('#svn').value||$('#sv').value),variant:r?r.variant:($('#svan').value||$('#sva').value),job:$('#jb').value,spec:$('#sp').value,net:$('#nw').value||0,nos:Math.round($('#wn').value||0),status:'Instock'});draw()}
+};
+nav();render();
+</script></body></html>
