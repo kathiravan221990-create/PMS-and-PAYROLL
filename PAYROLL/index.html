@@ -645,18 +645,22 @@ VIEWS.dashboard=async()=>{
    <details class="dsv"><summary class="dl"><span>Per man-day van <span class="hint">₹ per head × <b id="mvh">${P1}</b> present · click to expand</span></span><span onclick="event.stopPropagation();event.preventDefault()" class="vr"><b id="mvt">-</b><input class="n" type="number" min="0" id="mvm" placeholder="Rate"></span></summary><div id="mvb"></div></details>
    <div class="dl hi"><span>Total van expense</span><b id="tvan">-</b></div>
          <div class="dl"><span>Other cost (₹)</span><input class="n" type="number" min="0" id="mo"></div>
-   <div class="dl"><span>Tins produced <span class="hint">later from PMS</span></span><input class="n" type="number" min="0" id="mt"></div></div>
+   <div class="dl"><span>Cans produced <span class="hint" id="mth">reading PMS production…</span></span><input class="n" type="number" min="0" id="mt"></div></div>
    <div class="dbx"><h3>Result</h3>
-   <div class="rt"><div><small>Total company spend</small><b id="tspend">-</b></div><div><small>Cost per head</small><b id="thead">-</b></div><div><small>Cost per tin</small><b id="ttin">-</b></div></div>
+   <div class="rt"><div><small>Total company spend</small><b id="tspend">-</b></div><div><small>Cost per head</small><b id="thead">-</b></div><div><small>Cost per can</small><b id="ttin">-</b></div></div>
    <h3 style="margin-top:12px">Needs attention</h3>
    <div class="dl"><span>Absent 7+ days</span><b class="red">${abs7}</b></div><div class="dl"><span>UAN / ESI pending</span><b>${pend}</b></div><div class="dl"><span>Attendance not entered</span><b>${T.ne}</b></div></div></div>`;
   const M=Object.assign({vd:'',vm:'',tea:'',oth:'',othl:'',tins:''},LS(MK)||{});
   const ids={mvd:'vd',mvm:'vm',mo:'oth',mt:'tins'};Object.entries(ids).forEach(([i,k])=>$('#'+i).value=M[k]);
   const calc=()=>{const g=i=>Number($('#'+i).value)||0;const van=g('mvd')+g('mvm')*P1;const spend=T.pay+PF+ES+van+g('mo')+(($('#msv')&&$('#msv').checked)?SV:0);const tins=g('mt');
-   if($('#kspend'))$('#kspend').textContent=fmt(spend);$('#mvt').textContent=fmt(g('mvm')*P1);$('#mvb').innerHTML=rows.map(r=>`<div class="dl" style="padding-left:26px"><span>${esc(r.name)} <span style="color:#9fb3dc;font-size:11px">${r.mp+r.fp} present</span></span><b>${fmt(g('mvm')*(r.mp+r.fp))}</b></div>`).join('');$('#tvan').textContent=fmt(van);$('#tspend').textContent=fmt(spend);$('#thead').textContent=P1?fmt(spend/P1):'-';$('#ttin').textContent=tins?'₹ '+(spend/tins).toFixed(3):'enter tins produced'};
+   if($('#kspend'))$('#kspend').textContent=fmt(spend);$('#mvt').textContent=fmt(g('mvm')*P1);$('#mvb').innerHTML=rows.map(r=>`<div class="dl" style="padding-left:26px"><span>${esc(r.name)} <span style="color:#9fb3dc;font-size:11px">${r.mp+r.fp} present</span></span><b>${fmt(g('mvm')*(r.mp+r.fp))}</b></div>`).join('');$('#tvan').textContent=fmt(van);$('#tspend').textContent=fmt(spend);$('#thead').textContent=P1?fmt(spend/P1):'-';$('#ttin').textContent=tins?'₹ '+(spend/tins).toFixed(3):'no cans produced'};
   Object.keys(ids).forEach(i=>$('#'+i).oninput=()=>{const o={};Object.entries(ids).forEach(([ii,k])=>o[k]=$('#'+ii).value);LW(MK,o);calc()});
   $('#msv').checked=LS(MK+'|sv')!==false;$('#msv').onchange=()=>{LW(MK+'|sv',$('#msv').checked);calc()};
-  calc()}
+  calc();
+  (async()=>{const mt=$('#mt'),h=$('#mth');if(!mt||!h)return;
+   try{const {data,error}=await sb.schema('pms_api').rpc('tins_produced',{p_date:d});if(error)throw error;if($('#dd').value!==d)return;
+    const n=Number(data)||0;mt.value=n;mt.readOnly=true;mt.title='Taken from PMS Production (CAN) for this day';h.textContent=n?'from PMS production · '+d:'no CAN production entered in PMS for '+d;calc()}
+   catch(_){if($('#dd').value!==d)return;mt.readOnly=false;h.textContent='PMS not connected yet · type manually'}})()}
  $('#mL').onclick=()=>{window._dmode='lite';VIEWS.dashboard()};$('#mU').onclick=()=>{window._dmode='ultra';VIEWS.dashboard()};
  $('#dg').onclick=()=>load().catch(e=>toast(cleanErr(e.message||String(e)),true));$('#dd').onchange=$('#dg').onclick;$('#dc').onchange=$('#dg').onclick;
  await load()};
