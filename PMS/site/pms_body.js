@@ -182,7 +182,7 @@ function skidForm(e,stock){const isNew=!e;stock=stock??(e?!e.so:false);
  <div class="card"><h2>3. Skid details</h2><div class="fg">
   <label>Date<input id="d" type="date" value="${e?e.date:TODAY}"></label><label>Skid No<input id="sk" value="${v('no')}" ${isNew?'placeholder="Skid no, or a name for opening stock"':'disabled'}></label>
   <label>DC No<input id="dc" value="${v('dc')}"></label>${sel('rf','Received from',['THINDIVANAM','PONDY','CHENNAI'],e?.from)}
-  ${sel('cm','Components in skid',['BODY','LID','BOTTOM','BODY,LID'],e?.comp)}<label>Gross weight (kg)<input id="gw" type="number" value="${v('gross')}"></label><label>Net weight (kg)<input id="nw" type="number" value="${v('net')}"></label>
+  ${sel('cm','Components in skid',['BODY','LID','BOTTOM','BODY,LID','BODY,BOTTOM','LID,BOTTOM','BODY,LID,BOTTOM'],e?.comp)}<label>Gross weight (kg)<input id="gw" type="number" value="${v('gross')}"></label><label>Net weight (kg)<input id="nw" type="number" value="${v('net')}"></label>
   <label>Sheet length<input id="L" type="number" value="${v('L')}"></label><label>Sheet breadth<input id="B" type="number" value="${v('B')}"></label><label>Thickness<input id="W" type="number" step="0.01" value="${v('W')}"></label>
   <label>Single sheet weight kg (auto)<input id="ss" readonly></label><label>Weight in Nos (auto)<input id="wn" readonly></label></div>
   <div class="row noprint" style="margin-top:14px"><button class="b g" id="sv2">${bt('save',isNew?'Save skid':'Save changes')}</button><button class="b l" id="cx">${bt('x','Cancel')}</button></div></div>`;
