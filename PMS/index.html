@@ -513,11 +513,14 @@ VIEWS.so=()=>{
 /* ---------------- Inward (list = Employees layout) ---------------- */
 VIEWS.inward=()=>{
  $('#main').innerHTML=`<div class="card"><h2>Inward skids</h2><div class="row noprint"><label>Search<input id="es" placeholder="Skid no, DC no, vendor, job"></label>
- <label>Status<select id="ea"><option value="">All</option><option>Instock</option><option>WIP</option><option>Used</option></select></label>
+ <label>Status<select id="ea"><option value="">All</option><option>Instock</option><option>WIP</option><option>Used</option><option>Non-Moving</option><option>Opening Stock</option></select></label>
  ${monthFilter(SKIDS,'')}
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New skid')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
- const load=()=>{const t=$('#es').value.toLowerCase(),s=$('#ea').value;const d=SKIDS.filter(x=>dfOk(x.date)&&(!s||skidStatus(x)===s)&&(!t||Object.values(x).join(' ').toLowerCase().includes(t)));
-  $('#el').innerHTML=`<div class="scroll"><table><tr><th>Skid No</th><th>Date</th><th>Sale Order</th><th>Vendor</th><th>Variant</th><th>Shape</th><th>Job Name</th><th>Job Spec</th><th>Component</th><th>Net kg</th><th>Nos</th><th>Slit Nos</th><th>Balance Nos</th><th>Status</th><th>Actions</th></tr>
+ const load=()=>{const t=$('#es').value.toLowerCase(),s=$('#ea').value;const base=SKIDS.filter(x=>dfOk(x.date)&&(!t||Object.values(x).join(' ').toLowerCase().includes(t)));
+  const nm=x=>skidStatus(x)==='Instock'&&dd(TODAY,x.date)>rv('non_moving_months')*30;const cnt=(f)=>base.filter(f).length;
+  const nmN=cnt(nm),tot=base.length,usd=cnt(x=>skidStatus(x)==='Used'),ins=cnt(x=>skidStatus(x)==='Instock'&&!nm(x)),wp=cnt(x=>skidStatus(x)==='WIP');
+  const op=x=>/^INSTOCK/i.test(x.no||'');const d=base.filter(x=>!s||(s==='Non-Moving'?nm(x):s==='Opening Stock'?op(x):skidStatus(x)===s));
+  $('#el').innerHTML=`<div class="kpi"><div><b>${tot}</b>Total skids</div><div><b>${usd}</b>Used</div><div><b>${ins}</b>Instock</div><div><b>${wp}</b>WIP</div><div><b>${nmN}</b>Non-moving (Instock &gt; ${rv('non_moving_months')} months)</div><div><b>${cnt(x=>/^INSTOCK/i.test(x.no||''))}</b>Opening stock (1 Jul)</div></div><div class="scroll"><table><tr><th>Skid No</th><th>Date</th><th>Sale Order</th><th>Vendor</th><th>Variant</th><th>Shape</th><th>Job Name</th><th>Job Spec</th><th>Component</th><th>Net kg</th><th>Nos</th><th>Slit Nos</th><th>Balance Nos</th><th>Status</th><th>Actions</th></tr>
   ${d.map(x=>{const ss=x.L*x.B*x.W*7.85/1e6;return `<tr><td>${x.no}</td><td>${x.date}</td><td>${x.so||'<span class="tag">stock</span>'}</td><td>${esc(x.vendor)}</td><td>${esc(x.variant)}</td><td>${x.shape}</td><td>${esc(x.job)}${x.recv&&x.recv.jid&&x.recv.jid!==x.jid?`<div class="mut" style="font-size:10px">received as ${esc(x.recv.job)} ${esc(x.recv.spec)}</div>`:''}</td><td>${esc(x.spec)}</td><td>${x.comp}</td><td>${x.net}</td><td>${Math.round(x.net/ss)}</td><td><b>${slitUsed(x.no)||''}</b></td><td>${Math.round(skidLeft(x))}</td>
   <td><span class="tag ${skidStatus(x)==='Instock'?'ok':skidStatus(x)==='WIP'?'warn':''}">${skidStatus(x)}</span></td><td>${ib('eye','View',`data-e="${x.no}"`)}${ib('edit','Edit',`data-ed="${x.no}"`)}${ib('trash','Delete',`data-del="${x.no}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown</div>`;
   bindDel(SKIDS,'no','Skid',x=>x.no,()=>VIEWS.inward(),x=>SLITS.some(t=>t.skid===x.no)?'This skid already has slitting entries. Delete those first.':'');
@@ -722,14 +725,14 @@ const owCheck=o=>{const p=(+o.boxes||0)*(+o.perbox||0);return {packed:p,diff:(+o
 const fgMade=id=>PROD.filter(r=>jobId(r.colour,r.variant,r.shape,r.vendor,r.job,r.spec)===id).reduce((a,r)=>a+(+r.fg||0)+(+r.sfg||0),0);
 let OWM='';
 VIEWS.outward=()=>{
- const mon=OUT.filter(o=>o.date.slice(0,7)==='2026-11'),bad=OUT.filter(o=>!owCheck(o).ok);
- $('#main').innerHTML=`<div class="kpi"><div><b>${mon.length}</b>Entries (Nov 2026)</div><div><b>${mon.reduce((a,o)=>a+(+o.qty||0),0).toLocaleString()}</b>Dispatched Nos (Nov 2026)</div><div><b>${mon.reduce((a,o)=>a+(+o.boxes||0),0).toLocaleString()}</b>Boxes (Nov 2026)</div><div><b>${bad.length}</b>Box check mismatches</div></div>
+ $('#main').innerHTML=`<div id="kp"></div>
  <div class="card"><h2>Outward (dispatch)</h2><div class="row noprint"><label>Search<input id="es" placeholder="Sale Order, DC, invoice, vendor, job, vehicle"></label>
  ${monthFilter(OUT,'cur')}
  <label>Box check<select id="eb"><option value="">All</option><option value="ok">Matches</option><option value="bad">Mismatch</option></select></label>
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New dispatch')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
  const load=()=>{const t=$('#es').value.toLowerCase(),m=$('#em').value,b=$('#eb').value;
   const d=OUT.filter(o=>dfOk(o.date)&&(!b||(b==='ok')===owCheck(o).ok)&&(!t||Object.values(o).join(' ').toLowerCase().includes(t)));
+  $('#kp').innerHTML=`<div class="kpi"><div><b>${d.length}</b>Entries (selected)</div><div><b>${d.reduce((a,o)=>a+(+o.qty||0),0).toLocaleString()}</b>Dispatched Nos</div><div><b>${d.reduce((a,o)=>a+(+o.boxes||0),0).toLocaleString()}</b>Boxes</div><div><b>${d.filter(o=>!owCheck(o).ok).length}</b>Box check mismatches</div></div>`;
   $('#el').innerHTML=`<div class="scroll"><table><tr><th>Date</th><th>DC No</th><th>Invoice</th><th>Sale Order</th><th>Vendor</th><th>Variant</th><th>Job ID</th><th>Job Name</th><th>Job Spec</th><th>Boxes</th><th>Packing</th><th>Dispatch Nos</th><th>Box check</th><th>Vehicle</th><th>Actions</th></tr>
   ${d.map(o=>{const c=owCheck(o);return `<tr><td>${o.date}</td><td>${esc(o.dc)}</td><td>${esc(o.invoice)}</td><td>${o.so||'<span class="tag">stock</span>'}</td><td>${esc(o.vendor)}</td><td>${esc(o.variant)}</td><td>${o.jid}</td><td>${esc(o.job)}</td><td>${esc(o.spec)}</td><td>${o.boxes}</td><td>${o.boxes}x${o.perbox}</td><td><b>${(+o.qty).toLocaleString()}</b></td>
   <td>${c.ok?'<span class="tag ok">OK</span>':`<span class="tag bad">${c.diff>0?'+':''}${c.diff.toLocaleString()}</span>`}</td><td>${esc(o.vehicle)}</td><td>${ib('eye','View',`data-e="${o.id}"`)}${ib('edit','Edit',`data-ed="${o.id}"`)}${ib('trash','Delete',`data-del="${o.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown · Box check = Boxes × Qty per box compared with the dispatch quantity (should match)</div>`;
@@ -800,12 +803,13 @@ const dv=(a,b)=>b?a/b:0;
 const scrapCnt=r=>({body:Math.round(dv(r.kb,r.wb)+dv(r.kbb,r.wbb)),lid:Math.round(dv(r.kl,r.wl)),bottom:Math.round(dv(r.kbt,r.wbt)+dv(r.kbb,r.wbb))});
 const scrapKg=r=>(+r.kb||0)+(+r.kl||0)+(+r.kbt||0)+(+r.kbb||0);
 VIEWS.scrap=()=>{
- const mon=SCRAP.filter(r=>r.date.slice(0,7)==='2026-11'),kg=mon.reduce((a,r)=>a+scrapKg(r),0),cn=mon.reduce((a,r)=>{const c=scrapCnt(r);return {b:a.b+c.body,l:a.l+c.lid,t:a.t+c.bottom}},{b:0,l:0,t:0});
- $('#main').innerHTML=`<div class="kpi"><div><b>${mon.length}</b>Entries (Nov 2026)</div><div><b>${kg.toFixed(1)}</b>Scrap kg (Nov 2026)</div><div><b>${cn.b.toLocaleString()}</b>Body Nos</div><div><b>${cn.l.toLocaleString()}</b>Lid Nos</div><div><b>${cn.t.toLocaleString()}</b>Bottom Nos</div></div>
+ $('#main').innerHTML=`<div id="kp"></div>
  <div class="card"><h2>Scrap entries</h2><div class="row noprint"><label>Search<input id="es" placeholder="Vendor, job, job ID"></label>
  ${monthFilter(SCRAP,'cur')}
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New scrap')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
  const load=()=>{const t=$('#es').value.toLowerCase(),m=$('#em').value;const d=SCRAP.filter(r=>dfOk(r.date)&&(!t||Object.values(r).join(' ').toLowerCase().includes(t)));
+  const kg=d.reduce((a,r)=>a+scrapKg(r),0),cn=d.reduce((a,r)=>{const c=scrapCnt(r);return {b:a.b+c.body,l:a.l+c.lid,t:a.t+c.bottom}},{b:0,l:0,t:0});
+  $('#kp').innerHTML=`<div class="kpi"><div><b>${d.length}</b>Entries (selected)</div><div><b>${kg.toFixed(1)}</b>Scrap kg</div><div><b>${cn.b.toLocaleString()}</b>Body Nos</div><div><b>${cn.l.toLocaleString()}</b>Lid Nos</div><div><b>${cn.t.toLocaleString()}</b>Bottom Nos</div></div>`;
   $('#el').innerHTML=`<div class="scroll"><table><tr><th rowspan=2>Date</th><th rowspan=2>Job ID</th><th rowspan=2>Vendor</th><th rowspan=2>Job Name</th><th rowspan=2>Job Spec</th><th colspan=5>Scrap kg</th><th colspan=3>Component count (auto)</th><th rowspan=2>Actions</th></tr><tr><th>Body</th><th>Lid</th><th>Bottom</th><th>Body+Bottom</th><th>Total</th><th>Body</th><th>Lid</th><th>Bottom</th></tr>
   ${d.map(r=>{const c=scrapCnt(r);return `<tr><td>${r.date}</td><td>${r.jid}</td><td>${esc(r.vendor)}</td><td>${esc(r.job)}</td><td>${esc(r.spec)}</td><td>${r.kb||''}</td><td>${r.kl||''}</td><td>${r.kbt||''}</td><td>${r.kbb||''}</td><td><b>${scrapKg(r).toFixed(2)}</b></td><td>${c.body||''}</td><td>${c.lid||''}</td><td>${c.bottom||''}</td><td>${ib('eye','View',`data-e="${r.id}"`)}${ib('edit','Edit',`data-ed="${r.id}"`)}${ib('trash','Delete',`data-del="${r.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown · Count = scrap kg ÷ single component weight (Body+Bottom kg is split using its own weight)</div>`;
   bindDel(SCRAP,'id','Scrap entry',x=>(x.job||'')+' on '+x.date,()=>VIEWS.scrap());
@@ -952,9 +956,7 @@ const cartonAuto=()=>PROD.filter(r=>r.cname&&+r.cqty).map(r=>({id:'p'+r.id,date:
 const ledAll=()=>CTAB==='carton'?[...CLED,...cartonAuto()]:ALED;
 const ledBal=(item,list)=>list.filter(x=>x.item===item).reduce((a,x)=>a+(x.type==='PURCHASE'?1:-1)*(+x.qty||0),0);
 VIEWS.carton=()=>{
- const L=ledAll(),mon=L.filter(x=>x.date.slice(0,7)==='2026-11'),pu=mon.filter(x=>x.type==='PURCHASE').reduce((a,x)=>a+(+x.qty),0),is=mon.filter(x=>x.type==='ISSUED').reduce((a,x)=>a+(+x.qty),0);
- const items=[...new Set(L.map(x=>x.item))],bal=items.reduce((a,i)=>a+ledBal(i,L),0),neg=items.filter(i=>ledBal(i,L)<0).length;
- $('#main').innerHTML=`<div class="kpi"><div><b>${items.length}</b>Items with movement</div><div><b>${pu.toLocaleString()}</b>Purchased (Nov 2026)</div><div><b>${is.toLocaleString()}</b>Issued (Nov 2026)</div><div><b>${bal.toLocaleString()}</b>Balance</div><div><b>${neg}</b>Negative stock</div></div>
+ $('#main').innerHTML=`<div id="kp"></div>
  <div class="card"><div class="row noprint" style="margin-bottom:10px"><div class="seg"><button class="${CTAB==='carton'?'on':''}" id="tc">CARTON</button><button class="${CTAB==='alum'?'on':''}" id="ta">ALUM &amp; TAPE</button></div></div>
  <h2>${CTAB==='carton'?'Carton entries':'Alum &amp; Tape entries'}</h2><div class="row noprint"><label>Search<input id="es" placeholder="${CTAB==='carton'?'Carton name, variation':'Item'}"></label>
  <label>Type<select id="et"><option value="">All</option><option>PURCHASE</option><option>ISSUED</option></select></label>
@@ -962,6 +964,8 @@ VIEWS.carton=()=>{
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New entry')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
  $('#tc').onclick=()=>{CTAB='carton';VIEWS.carton()};$('#ta').onclick=()=>{CTAB='alum';VIEWS.carton()};
  const load=()=>{const t=$('#es').value.toLowerCase(),ty=$('#et').value,m=$('#em').value;const d=ledAll().filter(x=>(!ty||x.type===ty)&&dfOk(x.date)&&(!t||(x.item+' '+(x.variation||'')).toLowerCase().includes(t))).sort((a,b)=>b.date.localeCompare(a.date));
+  {const L=ledAll(),pu=d.filter(x=>x.type==='PURCHASE').reduce((a,x)=>a+(+x.qty),0),is=d.filter(x=>x.type==='ISSUED').reduce((a,x)=>a+(+x.qty),0),items=[...new Set(L.map(x=>x.item))],bal=items.reduce((a,i)=>a+ledBal(i,L),0),neg=items.filter(i=>ledBal(i,L)<0).length;
+  $('#kp').innerHTML=`<div class="kpi"><div><b>${items.length}</b>Items with movement</div><div><b>${pu.toLocaleString()}</b>Purchased (selected)</div><div><b>${is.toLocaleString()}</b>Issued (selected)</div><div><b>${bal.toLocaleString()}</b>Balance (all time)</div><div><b>${neg}</b>Negative stock</div></div>`}
   $('#el').innerHTML=`<div class="scroll"><table><tr><th>Date</th>${CTAB==='carton'?'<th>Carton variation</th>':''}<th>${CTAB==='carton'?'Carton name':'Item'}</th><th>Type</th><th>Quantity</th><th>Balance now</th><th>Remarks</th><th>Actions</th></tr>
   ${d.map(x=>{const b=ledBal(x.item,ledAll());return `<tr><td>${x.date}</td>${CTAB==='carton'?`<td>${esc(x.variation||'')}</td>`:''}<td>${esc(x.item)}</td><td><span class="tag ${x.type==='PURCHASE'?'ok':'warn'}">${x.type}</span></td><td><b>${(+x.qty).toLocaleString()}</b></td><td>${b<0?`<span class="tag bad">${b.toLocaleString()}</span>`:b.toLocaleString()}</td><td>${esc(x.rem||'')}</td><td>${x.auto?'<span class="tag">auto</span>':ib('edit','Edit',`data-ed="${x.id}"`)}${ib('trash','Delete',`data-del="${x.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown · Balance = Purchased − Issued${CTAB==='carton'?' · Cartons used in Production entries are added to Issued automatically':''}</div>`;
   bindDel(CTAB==='carton'?CLED:ALED,'id','Entry',x=>x.item+' on '+x.date,()=>VIEWS.carton());
