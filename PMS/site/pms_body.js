@@ -91,9 +91,9 @@ function newJobModal(cb){const m=modal(`<h2>Add new job / job spec</h2><div clas
   if(!DB_JOBS.some(x=>jobId(x.colour,x.variant,x.shape,x.vendor,x.job,x.spec)===j.jid))DB_JOBS.push(j);m.remove();cb(j)}}
 
 let STOCK_BASE_LIVE=null;
-const NAVMAP={status:'status',so:'invoice',inward:'employees',outward:'register',scrap:'revisions',quality:'status',carton:'otherpay',slitting:'attendance',production:'dashboard',manpower:'users',skids:'photos',inventory:'months',daily:'slip',recon:'pfesi',datalog:'shifts',masters:'contractors',rules:'rulebook',rulebook:'rulebook',tracking:'otherpay',backdate:'revisions',rscrap:'revisions',rslit:'attendance',rprod:'dashboard',rman:'users',jobcalc:'billing',boxreg:'register',cstock:'otherpay',astock:'otherpay'};
-const TITLES={rulebook:'Rules book',so:'Sale Order',inward:'Inward',outward:'Outward',scrap:'Scrap entry',quality:'Job Master',carton:'Carton & Alum/Tape entry',slitting:'Slitting',production:'Production',manpower:'Manpower',skids:'Skid details',inventory:'Inventory',daily:'Daily production report',recon:'Production vs Dispatch',datalog:'Data log',status:'Status check',masters:'Man Power Matrix',rules:'Rules',tracking:'Stock tracking',backdate:'Back-date review',rscrap:'Scrap report',rslit:'Slitting report',rprod:'Production report',rman:'Manpower report',jobcalc:'Job Calculator',boxreg:'Box Register',cstock:'Carton stock',astock:'Alum & Tape stock'};
-const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register'],['cstock','Carton stock'],['astock','Alum & Tape stock']]],['SETTINGS',[['masters','Man Power Matrix'],['tracking','Stock tracking'],['backdate','Back-date review'],['rulebook','Rules book'],['rules','Rules']]]];
+const NAVMAP={status:'status',so:'invoice',inward:'employees',outward:'register',scrap:'revisions',quality:'status',carton:'otherpay',slitting:'attendance',production:'dashboard',manpower:'users',skids:'photos',inventory:'months',daily:'slip',recon:'pfesi',datalog:'shifts',masters:'contractors',rules:'rulebook',rulebook:'rulebook',importx:'otherpay',tracking:'otherpay',backdate:'revisions',rscrap:'revisions',rslit:'attendance',rprod:'dashboard',rman:'users',jobcalc:'billing',boxreg:'register',cstock:'otherpay',astock:'otherpay'};
+const TITLES={rulebook:'Rules book',importx:'Import Excel',so:'Sale Order',inward:'Inward',outward:'Outward',scrap:'Scrap entry',quality:'Job Master',carton:'Carton & Alum/Tape entry',slitting:'Slitting',production:'Production',manpower:'Manpower',skids:'Skid details',inventory:'Inventory',daily:'Daily production report',recon:'Production vs Dispatch',datalog:'Data log',status:'Status check',masters:'Man Power Matrix',rules:'Rules',tracking:'Stock tracking',backdate:'Back-date review',rscrap:'Scrap report',rslit:'Slitting report',rprod:'Production report',rman:'Manpower report',jobcalc:'Job Calculator',boxreg:'Box Register',cstock:'Carton stock',astock:'Alum & Tape stock'};
+const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register'],['cstock','Carton stock'],['astock','Alum & Tape stock']]],['SETTINGS',[['masters','Man Power Matrix'],['tracking','Stock tracking'],['backdate','Back-date review'],['importx','Import Excel'],['rulebook','Rules book'],['rules','Rules']]]];
 let THRESH=50;
 // delete an entry from a list: confirm first, some rows are protected (guard returns the reason)
 const bindDel=(list,key,what,label,after,guard)=>document.querySelectorAll('[data-del]').forEach(a=>a.onclick=()=>{
@@ -120,7 +120,7 @@ const skidStatus=x=>!SLITS.some(t=>t.skid===x.no)?'Instock':(skidLeft(x)>THRESH?
 const LIVE=['skids','rslit','rprod','rscrap','inventory','daily','recon','boxreg','cstock','astock','rules','status','masters','rman','so','inward','outward','scrap','carton','quality','jobcalc','slitting','production'];let SKIDS=MOCK.skids.slice(),sideCollapsed=false;
 function shell(){
  $('#app').innerHTML=`<div class="layout"><aside><div class="brand"><img src="__BRAND__"><div><b>CP PMS</b><span>Classic Pack Pvt Ltd</span></div></div>
- <nav>${GROUPS.map(([g,a])=>[g,a.filter(t=>(t[0]!=='tracking'||pcan('tracking_edit'))&&(t[0]!=='backdate'||pcan('backdate_review')))]).map(([g,a])=>`<div class="ngrp">${g}</div>`+a.map(t=>`<button data-v="${t[0]}" title="${t[1]}"><span class="tile">${NAV[NAVMAP[t[0]]]}</span><span class="lb">${t[1]}</span></button>`).join('')).join('')}</nav><div class="side-foot">Role: <b style="color:var(--gold2)">${esc(ME&&ME.roles&&ME.roles.pms||"")}</b></div></aside>
+ <nav>${GROUPS.map(([g,a])=>[g,a.filter(t=>(t[0]!=='tracking'||pcan('tracking_edit'))&&(t[0]!=='backdate'||pcan('backdate_review'))&&(t[0]!=='importx'||pcan('rules_edit')))]).map(([g,a])=>`<div class="ngrp">${g}</div>`+a.map(t=>`<button data-v="${t[0]}" title="${t[1]}"><span class="tile">${NAV[NAVMAP[t[0]]]}</span><span class="lb">${t[1]}</span></button>`).join('')).join('')}</nav><div class="side-foot">Role: <b style="color:var(--gold2)">${esc(ME&&ME.roles&&ME.roles.pms||"")}</b></div></aside>
  <div class="content"><div class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="menu" id="mn" title="Expand / collapse menu">${I('menu')}</button><h1 id="ttl"></h1></div><div class="who"><div class="av">${esc((ME&&ME.full_name||"?")[0].toUpperCase())}</div><div>${esc(ME&&ME.full_name||"")}</div><button id="lo">${I('logout')} Log out</button></div></div><main id="main"></main></div></div>`;
  document.querySelectorAll('aside nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
  $('#mn').onclick=()=>{sideCollapsed=!sideCollapsed;document.body.classList.toggle('sc',sideCollapsed)}}
@@ -719,6 +719,68 @@ VIEWS.rules=()=>{
   $('#ok').onclick=()=>{const raw=$('#nv').value,v=r.t==='sel'?raw:+raw;if(r.t==='num'&&(raw===''||v<0))return toast('Enter a valid number',true);if(!$('#nr').value.trim())return toast('Give a reason',true);
    if(r.k==='data_log_red_days'&&v<=rv('data_log_amber_days')||r.k==='data_log_amber_days'&&v>=rv('data_log_red_days'))return toast('Amber days must be less than red days',true);
    R('rule_set',{p_key:r.k,p_value:v,p_from:$('#nf').value||null,p_reason:$('#nr').value.trim()}).then(async({error})=>{if(error)return toast(cleanErr(error.message),true);document.querySelector('.modal')?.remove();toast('Saved');await hydrate();VIEWS.rules()})}})};
+/* ---------------- Admin: import the PMS Excel ---------------- */
+/*XL-PARSE-START*/
+function pmsParseExcel(XLSX,buf,todayIso){
+ const NS='NOT SPECIFIED',NOV='UNKNOWN VENDOR',need=['SALE ORDER','INWARD','SLITTING','PRODUCTION','OUTWARD','SCRAP'];
+ const wb=XLSX.read(buf,{type:'array',sheets:need,cellDates:false});
+ const miss=need.filter(n=>!wb.Sheets[n]);if(miss.length)throw new Error('Sheet not found in the file: '+miss.join(', '));
+ const norm=x=>x==null?'':String(x).replace(/\s+/g,' ').trim().toUpperCase();
+ const str=x=>x?String(x).trim():null;
+ const num=x=>typeof x==='number'&&isFinite(x)?+x.toFixed(4):null;
+ const iso=x=>{if(typeof x!=='number'||x<40000||x>70000)return null;return new Date(Math.round((Math.floor(x)-25569)*864e5)).toISOString().slice(0,10)};
+ const rows=(n,h)=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null,blankrows:true}).slice(h);
+ const k6=(c,v,va,sh,j,sp)=>({colour:norm(c)||NS,vendor:norm(v)||NOV,variant:norm(va)||NS,shape:norm(sh)||NS,job:norm(j)||NS,spec:norm(sp)||NS});
+ const out={so:[],inw:[],sl:[],pr:[],ow:[],sc:[]},warn=[];
+ const so=new Map();
+ rows('SALE ORDER',1).filter(r=>r[0]).forEach(r=>{const v=norm(r[7])||norm(r[6])||NS,no=String(r[0]).trim();so.set(no+'|'+v+'|'+norm(r[6]),{so_no:no,d:iso(r[1]),vendor:norm(r[3])||NOV,variant:v,colour:norm(r[5]),descr:norm(r[6]),qty:num(r[11]),status:norm(r[4])})});
+ out.so=[...so.values()];
+ const inw=new Map();
+ rows('INWARD',2).filter(r=>r[7]).forEach(r=>{if(!norm(r[14]))return;const sk=norm(r[7]),d=iso(r[4]);if(inw.has(sk)){warn.push('Skid '+sk+' appears twice in Inward - the first row is used');return}if(!d){warn.push('Skid '+sk+' has no date - skipped');return}
+  inw.set(sk,{skid:sk,d,dc:str(r[6]),from:str(r[3]),so:str(r[1]),...k6(r[10],r[11],r[12],r[13],r[14],r[15]),comps:str(r[17]),gross:num(r[18]),net:num(r[19]),l:num(r[20]),b:num(r[21]),w:num(r[22]),ssw:num(r[23]),nos:num(r[24]),used:iso(r[9])})});
+ out.inw=[...inw.values()];
+ rows('SLITTING',2).filter(r=>r[2]).forEach(r=>{const sk=norm(r[2]),d=iso(r[0]);if(!d)return;if(!inw.has(sk)){warn.push('Slitting row for skid '+sk+' skipped - skid is not in Inward');return}
+  out.sl.push({d,skid:sk,comps:str(r[12]),n:Array.from({length:25},(_,i)=>num(r[13+i]))})});
+ rows('PRODUCTION',1).filter(r=>r[0]).forEach(r=>{if(!((r[10]||r[14]||r[15]||r[17])&&norm(r[6])&&iso(r[0])))return;
+  out.pr.push({d:iso(r[0]),...k6(r[2],r[5],r[3],r[4],r[6],r[7]),comp:norm(r[9]),a:num(r[10]),mp:num(r[11]),hr:num(r[12]),ex:num(r[13]),fg:num(r[14]),sfg:num(r[15]),sc:num(r[17]),cv:norm(r[20]),cn:r[21]?String(r[21]).trim():'',cq:num(r[22])})});
+ rows('OUTWARD',2).filter(r=>r[3]&&r[9]).forEach(r=>{if(!(norm(r[9])&&iso(r[3])))return;
+  out.ow.push({d:iso(r[3]),so:r[1]?String(r[1]).trim():'',...k6(r[5],r[8],r[6],r[7],r[9],r[10]),bx:num(r[12]),ps:str(r[13]),q:num(r[14]),inv:str(r[15]),dc:str(r[16]),tc:str(r[17]),vh:str(r[18])})});
+ rows('SCRAP',2).filter(r=>r[0]).forEach(r=>{if(!(norm(r[6])&&iso(r[0])&&[9,10,11,12,17,18,19].some(i=>num(r[i]))))return;
+  out.sc.push({d:iso(r[0]),...k6(r[2],r[5],r[3],r[4],r[6],r[7]),n:Array.from({length:11},(_,i)=>num(r[9+i]))})});
+ // rows dated after today are held back (usually a typing mistake)
+ const held=[];['so','inw','sl','pr','ow','sc'].forEach(t=>{out[t]=out[t].filter(r=>{if(r.d&&r.d>todayIso){held.push({t,r});return false}return true})});
+ return {rows:out,warn,held};
+}
+/*XL-PARSE-END*/
+const XL_LABEL={so:'Sale Order',inw:'Inward',sl:'Slitting',pr:'Production',ow:'Outward',sc:'Scrap'};
+const loadXL=()=>window.XLSX?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=ok;s.onerror=()=>no(new Error('The Excel reader could not be loaded. Check the internet connection and try again.'));document.head.appendChild(s)});
+async function pmsUpload(rows,onp){const res=[];
+ for(const [t,m] of [['so','upsert'],['inw','upsert'],['sl','replace'],['pr','replace'],['ow','replace'],['sc','replace']]){const a=rows[t],CH=t==='sl'?300:400;let first=true;const tot={deleted:0,updated:0,inserted:0};
+  for(let i=0;first||i<a.length;i+=CH){onp(t,Math.min(i,a.length),a.length);
+   const {data,error}=await R('import_excel',{p:{table:t,mode:m==='replace'?(first?'replace':'append'):m,rows:a.slice(i,i+CH)}});
+   if(error)throw new Error(XL_LABEL[t]+': '+cleanErr(error.message));first=false;['deleted','updated','inserted'].forEach(k=>tot[k]+=+(data?.[k])||0)}
+  res.push([t,tot])}
+ return res}
+VIEWS.importx=()=>{
+ $('#main').innerHTML=`<div class="card"><h2>Import PMS Excel</h2><div class="mut" style="margin-bottom:8px">Choose the latest PMS Excel (.xlsm). The Sale Order, Inward, Slitting, Production, Outward and Scrap sheets are read in this browser and the system is brought in line with them. Sale Order and Inward lines are updated by their number; Slitting, Production, Outward and Scrap rows that came from an earlier import are replaced. Anything entered in this system by a person is never touched. New job names and specs become Job Master drafts for Quality.</div>
+ <div class="row noprint"><label>PMS Excel file<input id="xf" type="file" accept=".xlsm,.xlsx"></label><button class="b g" id="xr">${bt('open','Read file')}</button></div><div id="xs" style="margin-top:12px"></div></div>`;
+ let P=null;
+ $('#xr').onclick=async()=>{const f=$('#xf').files[0];if(!f)return toast('Choose the Excel file first',true);
+  $('#xs').innerHTML='<div class="mut">Reading the file... this takes a few seconds.</div>';
+  try{await loadXL();P=pmsParseExcel(window.XLSX,await f.arrayBuffer(),TODAY)}catch(e){P=null;return $('#xs').innerHTML=`<div class="msg err">${esc(e.message)}</div>`}
+  const now={so:MOCK.so.length,inw:SKIDS.length,sl:SLITS.length,pr:PROD.length,ow:OUT.length,sc:SCRAP.length};
+  const known=new Set(Object.keys(MOCK.vendors||{}));const nv=[...new Set(Object.values(P.rows).flat().map(r=>r.vendor).filter(Boolean))].filter(v=>!known.has(v)).sort();
+  $('#xs').innerHTML=`<div class="scroll"><table><tr><th>Sheet</th><th>Rows in the file</th><th>Rows in the system now</th></tr>${Object.keys(XL_LABEL).map(t=>`<tr><td style="text-align:left"><b>${XL_LABEL[t]}</b></td><td>${P.rows[t].length}</td><td>${now[t]}</td></tr>`).join('')}</table></div>`
+   +(P.held.length?`<div class="msg err" style="margin-top:8px"><b>${P.held.length} row(s) are dated after today and will NOT be imported</b> (probably a date typed wrongly). Correct them in the Excel and import again: ${P.held.slice(0,6).map(h=>XL_LABEL[h.t]+' '+h.r.d+' '+esc(h.r.job||h.r.skid||h.r.so_no||'')).join('; ')}${P.held.length>6?' ...':''}</div>`:'')
+   +(P.warn.length?`<div class="msg" style="margin-top:8px"><b>Notes:</b><br>${[...new Set(P.warn)].slice(0,12).map(esc).join('<br>')}</div>`:'')
+   +(nv.length?`<div class="msg" style="margin-top:8px"><b>${nv.length} vendor name(s) are not in the current vendor list</b> (a new customer, or a spelling the system already maps to an existing vendor): ${nv.slice(0,40).map(esc).join(' | ')}${nv.length>40?' ...':''}</div>`:'')
+   +`<div class="row noprint" style="margin-top:12px"><button class="b g" id="xg">${bt('save','Import now')}</button><span class="mut" id="xp"></span></div><div id="xo"></div>`;
+  $('#xg').onclick=async()=>{if(!confirm('Import this file into the system now?'))return;$('#xg').disabled=true;
+   try{const res=await pmsUpload(P.rows,(t,i,n)=>$('#xp').textContent='Importing '+XL_LABEL[t]+' '+i+' / '+n+' ...');
+    $('#xp').textContent='Refreshing the screens ...';await hydrate();
+    $('#xo').innerHTML=`<div class="msg ok" style="margin-top:10px"><b>Import finished.</b></div><div class="scroll"><table><tr><th>Sheet</th><th>Removed (old import)</th><th>Updated</th><th>Added</th></tr>${res.map(([t,x])=>`<tr><td style="text-align:left"><b>${XL_LABEL[t]}</b></td><td>${x.deleted}</td><td>${x.updated}</td><td>${x.inserted}</td></tr>`).join('')}</table></div>`;$('#xp').textContent='';toast('Import finished')}
+   catch(e){$('#xg').disabled=false;$('#xp').textContent='';$('#xo').innerHTML=`<div class="msg err" style="margin-top:10px">${esc(e.message)}<br>Nothing is lost: fix the cause and import again - the import can be repeated safely.</div>`}}};
+};
 /* ---------------- Rules book: every rule, sheet-wise and report-wise ---------------- */
 const RB_BACK=()=>`Older than ${rv('edit_window_days')} days needs a back-date reason (5+ characters); it is logged and Admin reviews it. After ${rv('edit_window_days')} days only Admin can edit or delete.`;
 const RB_SHEETS=()=>[

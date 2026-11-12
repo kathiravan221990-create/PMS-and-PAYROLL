@@ -10,3 +10,6 @@ pms_13_att_range: pms_api.att_range(from,to) returns Payroll attendance per desi
 
 ## pms_15_slitting_component_rule
 `pms_api.slitting_save` now reads the components from the skid's Inward record (not from the browser) and rejects any layout / weight / jally entry for a component the skid does not carry (e.g. BODY skid: Lid and Bottom rejected; BODY,LID: Bottom rejected). A skid with no components set in Inward cannot be slit until Inward is corrected. Existing rows are not changed.
+
+## pms_16_import_excel (+16b)
+`pms_api.import_excel(p jsonb)` (Admin / Manager, permission `rules_edit`) backs the Import Excel screen. Per sheet `{table, mode, rows}`: Sale Order and Inward are upserted by SO no + variant + description / skid no; Slitting, Production, Outward and Scrap first delete rows with `created_by is null` (earlier imports) when `mode='replace'`, then insert. Rows entered by people are never touched. Blank vendors use UNKNOWN VENDOR; blank colour / variant use NOT SPECIFIED. Inward status is computed, not stored.
