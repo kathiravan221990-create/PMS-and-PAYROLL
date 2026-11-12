@@ -91,9 +91,9 @@ function newJobModal(cb){const m=modal(`<h2>Add new job / job spec</h2><div clas
   if(!DB_JOBS.some(x=>jobId(x.colour,x.variant,x.shape,x.vendor,x.job,x.spec)===j.jid))DB_JOBS.push(j);m.remove();cb(j)}}
 
 let STOCK_BASE_LIVE=null;
-const NAVMAP={status:'status',so:'invoice',inward:'employees',outward:'register',scrap:'revisions',quality:'status',carton:'otherpay',slitting:'attendance',production:'dashboard',manpower:'users',skids:'photos',inventory:'months',daily:'slip',recon:'pfesi',datalog:'shifts',masters:'contractors',rules:'rulebook',tracking:'otherpay',backdate:'revisions',rscrap:'revisions',rslit:'attendance',rprod:'dashboard',rman:'users',jobcalc:'billing',boxreg:'register',cstock:'otherpay',astock:'otherpay'};
-const TITLES={so:'Sale Order',inward:'Inward',outward:'Outward',scrap:'Scrap entry',quality:'Job Master',carton:'Carton & Alum/Tape entry',slitting:'Slitting',production:'Production',manpower:'Manpower',skids:'Skid details',inventory:'Inventory',daily:'Daily production report',recon:'Production vs Dispatch',datalog:'Data log',status:'Status check',masters:'Man Power Matrix',rules:'Rules',tracking:'Stock tracking',backdate:'Back-date review',rscrap:'Scrap report',rslit:'Slitting report',rprod:'Production report',rman:'Manpower report',jobcalc:'Job Calculator',boxreg:'Box Register',cstock:'Carton stock',astock:'Alum & Tape stock'};
-const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register'],['cstock','Carton stock'],['astock','Alum & Tape stock']]],['SETTINGS',[['masters','Man Power Matrix'],['tracking','Stock tracking'],['backdate','Back-date review'],['rules','Rules']]]];
+const NAVMAP={status:'status',so:'invoice',inward:'employees',outward:'register',scrap:'revisions',quality:'status',carton:'otherpay',slitting:'attendance',production:'dashboard',manpower:'users',skids:'photos',inventory:'months',daily:'slip',recon:'pfesi',datalog:'shifts',masters:'contractors',rules:'rulebook',rulebook:'rulebook',tracking:'otherpay',backdate:'revisions',rscrap:'revisions',rslit:'attendance',rprod:'dashboard',rman:'users',jobcalc:'billing',boxreg:'register',cstock:'otherpay',astock:'otherpay'};
+const TITLES={rulebook:'Rules book',so:'Sale Order',inward:'Inward',outward:'Outward',scrap:'Scrap entry',quality:'Job Master',carton:'Carton & Alum/Tape entry',slitting:'Slitting',production:'Production',manpower:'Manpower',skids:'Skid details',inventory:'Inventory',daily:'Daily production report',recon:'Production vs Dispatch',datalog:'Data log',status:'Status check',masters:'Man Power Matrix',rules:'Rules',tracking:'Stock tracking',backdate:'Back-date review',rscrap:'Scrap report',rslit:'Slitting report',rprod:'Production report',rman:'Manpower report',jobcalc:'Job Calculator',boxreg:'Box Register',cstock:'Carton stock',astock:'Alum & Tape stock'};
+const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register'],['cstock','Carton stock'],['astock','Alum & Tape stock']]],['SETTINGS',[['masters','Man Power Matrix'],['tracking','Stock tracking'],['backdate','Back-date review'],['rulebook','Rules book'],['rules','Rules']]]];
 let THRESH=50;
 // delete an entry from a list: confirm first, some rows are protected (guard returns the reason)
 const bindDel=(list,key,what,label,after,guard)=>document.querySelectorAll('[data-del]').forEach(a=>a.onclick=()=>{
@@ -206,16 +206,19 @@ function skidForm(e,stock){const isNew=!e;stock=stock??(e?!e.so:false);
   saveLive('inward_save',{id:e?.id,skid_no:rec.no,entry_date:rec.date,dc_no:rec.dc,received_from:rec.from,so_no:rec.so,so_line_id:r?r.id:null,stock_reason:$('#rs')?$('#rs').value:'',components_in_skid:rec.comp,gross_wt:rec.gross,net_wt:rec.net,sheet_l:rec.L,sheet_b:rec.B,sheet_w:rec.W,single_sheet_wt:+$('#ss').value||null,weight_in_nos:+$('#wn').value||null,job:jobObj(rec,{so_line_id:r?r.id:null})},'inward')};
 }
 /* ---------------- Slitting (list + entry; Employee layout) ---------------- */
+const slitIssue=(r,k)=>{if(!k||/^INSTOCK/i.test(r.skid))return '';const c=(k.comp||'').toUpperCase();if(!/(BODY|LID|BOTTOM)/.test(c))return 'Skid has no components set in Inward - set them in the Inward entry';
+ const bad=[['BODY','body','bwt'],['LID','lid','lwt'],['BOTTOM','bottom','btwt']].filter(([n,f,w])=>!c.includes(n)&&(+r[f]>0||+r[w]>0)).map(x=>x[0]);return bad.length?'Skid carries '+c+' but has '+bad.join(' and ')+' entered - correct the entry (or the skid components in Inward)':''};
 VIEWS.slitting=()=>{
  $('#main').innerHTML=`<div class="card"><h2>Slitting entries</h2><div class="row noprint"><label>Search<input id="es" placeholder="Skid no, vendor, job"></label>
  <label>Month<select id="em"><option value="">All</option><option>NOV 2026</option><option>JUL 2026</option></select></label>
+ <label>Show<select id="ef"><option value="">All entries</option><option value="bad">Needs correction</option></select></label>
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New slitting')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
- const load=()=>{const t=$('#es').value.toLowerCase();const d=SLITS.map(r=>({r,k:SKIDS.find(x=>x.no===r.skid)})).filter(({r,k})=>!t||(r.skid+k.vendor+k.job).toLowerCase().includes(t));
-  $('#el').innerHTML=`<div class="scroll"><table><tr><th>Date</th><th>Skid No</th><th>Vendor</th><th>Job Name</th><th>Job Spec</th><th>Slitting count</th><th>Body</th><th>Lid</th><th>Bottom</th><th>Expected production</th><th>Variance kg</th><th>Skid status</th><th>Actions</th></tr>
-  ${d.map(({r,k})=>{const c=slitCalc(r,k);return `<tr><td>${r.date}</td><td>${r.skid}</td><td>${esc(k.vendor)}</td><td>${esc(k.job)}</td><td>${esc(k.spec)}</td><td>${r.count}</td><td>${r.body}</td><td>${r.lid}</td><td>${r.bottom}</td><td><b>${c.exp.toLocaleString()}</b></td><td>${c.variance.toFixed(1)}</td><td><span class="tag ${skidStatus(k)==='WIP'?'warn':skidStatus(k)==='Used'?'':'ok'}">${skidStatus(k)}</span></td><td>${ib('eye','View',`data-e="${r.id}"`)}${ib('edit','Edit',`data-ed="${r.id}"`)}${ib('trash','Delete',`data-del="${r.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown</div>`;
+ const load=()=>{const t=$('#es').value.toLowerCase();const nb=SLITS.filter(r=>slitIssue(r,SKIDS.find(x=>x.no===r.skid))).length;const d=SLITS.map(r=>({r,k:SKIDS.find(x=>x.no===r.skid)})).filter(({r,k})=>(!t||(r.skid+k.vendor+k.job).toLowerCase().includes(t))&&($('#ef').value!=='bad'||slitIssue(r,k)));
+  $('#el').innerHTML=(nb?`<div class="msg err" style="margin-bottom:8px">${nb} slitting entr${nb>1?'ies need':'y needs'} correction (a number is entered for a component the skid does not carry, or the skid has no components in Inward). Choose "Needs correction" in Show to list them.</div>`:'')+`<div class="scroll"><table><tr><th>Date</th><th>Skid No</th><th>Vendor</th><th>Job Name</th><th>Job Spec</th><th>Slitting count</th><th>Body</th><th>Lid</th><th>Bottom</th><th>Expected production</th><th>Variance kg</th><th>Skid status</th><th>Check</th><th>Actions</th></tr>
+  ${d.map(({r,k})=>{const c=slitCalc(r,k);const bi=slitIssue(r,k);return `<tr><td>${r.date}</td><td>${r.skid}</td><td>${esc(k.vendor)}</td><td>${esc(k.job)}</td><td>${esc(k.spec)}</td><td>${r.count}</td><td>${r.body}</td><td>${r.lid}</td><td>${r.bottom}</td><td><b>${c.exp.toLocaleString()}</b></td><td>${c.variance.toFixed(1)}</td><td><span class="tag ${skidStatus(k)==='WIP'?'warn':skidStatus(k)==='Used'?'':'ok'}">${skidStatus(k)}</span></td><td>${bi?`<span class="tag warn" title="${esc(bi)}">Correct</span>`:''}</td><td>${ib('eye','View',`data-e="${r.id}"`)}${ib('edit','Edit',`data-ed="${r.id}"`)}${ib('trash','Delete',`data-del="${r.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown</div>`;
   bindDel(SLITS,'id','Slitting entry',x=>x.skid+' on '+x.date,()=>VIEWS.slitting());
   document.querySelectorAll('[data-e],[data-ed]').forEach(a=>a.onclick=()=>slitForm(SLITS.find(x=>x.id==(a.dataset.e||a.dataset.ed))))};
- load();$('#eg').onclick=load;$('#es').oninput=load;$('#en').onclick=()=>slitForm(null)};
+ load();$('#eg').onclick=load;$('#es').oninput=load;$('#ef').onchange=load;$('#en').onclick=()=>slitForm(null)};
 // same formulas as the SLITTING sheet
 function slitCalc(r,k){const c=(k.comp||'').toUpperCase();const sl={body:r.body*r.count,lid:r.lid*r.count,bottom:r.bottom*r.count};
  const inSkid=['body','lid','bottom'].filter(n=>c.includes(n.toUpperCase()));const exp=inSkid.length?Math.min(...inSkid.map(n=>sl[n])):0;
@@ -254,7 +257,7 @@ function slitForm(e){const isNew=!e;
     else if($('#dfl'))$('#dfl').textContent='Enter the pieces per sheet for the components in this skid.'
    }
    const c=slitCalc(rec(),k);f('#sb',c.sl.body);f('#sl',c.sl.lid);f('#sbt',c.sl.bottom);f('#ex',c.exp);f('#tw',c.tin.toFixed(3));f('#bf',c.bif.toFixed(2));f('#vr',c.variance.toFixed(2))}};
- ['#lb','#ll','#lbt'].forEach(i=>$(i).addEventListener('input',ev=>{if(ev.isTrusted)ev.target.dataset.t=1}));['#sk','#cnt','#lb','#ll','#lbt','#wb','#wl','#wbt'].forEach(i=>{$(i).oninput=$(i).onchange=upd});upd();
+ ['#lb','#ll','#lbt'].forEach(i=>$(i).addEventListener('input',ev=>{if(ev.isTrusted)ev.target.dataset.t=1}));['#sk','#cnt','#lb','#ll','#lbt','#wb','#wl','#wbt'].forEach(i=>{$(i).oninput=$(i).onchange=upd});upd();if(e){const m=slitIssue(e,SKIDS.find(x=>x.no===e.skid));if(m&&$('#dfl'))$('#dfl').textContent='WARNING: '+m+'. Saving this form clears the numbers for components the skid does not carry.'}
  $('#bk').onclick=$('#cx').onclick=()=>go('slitting');
  $('#sv2').onclick=()=>{if(!$('#sk').value)return toast('Pick the skid',true);const r=rec(),k=SKIDS.find(x=>x.no===r.skid),c=slitCalc(r,k);saveLive('slitting_save',{id:e?.id,skid_id:k.id,entry_date:r.date,components_in_skid:k.comp,gross_wt:k.gross,net_wt:k.net,sheet_l:k.L,sheet_b:k.B,sheet_w:k.W,single_sheet_wt:sheetWt(k),weight_in_nos:skidNos(k),slitting_count:r.count,body_layout:r.body,lid_layout:r.lid,bottom_layout:r.bottom,body_sl:c.sl.body,lid_sl:c.sl.lid,bottom_sl:c.sl.bottom,expected_production:c.exp,strip_wt:r.strip,lid_jl:r.ljl,bottom_jl:r.bjl,body_wt:r.bwt,lid_wt:r.lwt,bottom_wt:r.btwt,tin_wt:c.tin,bifurcated_skid:c.bif,raw_skid:k.net,variance:c.variance},'slitting')}}
 /* ---------------- Production (list + entry; Employee layout) ---------------- */
@@ -716,6 +719,76 @@ VIEWS.rules=()=>{
   $('#ok').onclick=()=>{const raw=$('#nv').value,v=r.t==='sel'?raw:+raw;if(r.t==='num'&&(raw===''||v<0))return toast('Enter a valid number',true);if(!$('#nr').value.trim())return toast('Give a reason',true);
    if(r.k==='data_log_red_days'&&v<=rv('data_log_amber_days')||r.k==='data_log_amber_days'&&v>=rv('data_log_red_days'))return toast('Amber days must be less than red days',true);
    R('rule_set',{p_key:r.k,p_value:v,p_from:$('#nf').value||null,p_reason:$('#nr').value.trim()}).then(async({error})=>{if(error)return toast(cleanErr(error.message),true);document.querySelector('.modal')?.remove();toast('Saved');await hydrate();VIEWS.rules()})}})};
+/* ---------------- Rules book: every rule, sheet-wise and report-wise ---------------- */
+const RB_BACK=()=>`Older than ${rv('edit_window_days')} days needs a back-date reason (5+ characters); it is logged and Admin reviews it. After ${rv('edit_window_days')} days only Admin can edit or delete.`;
+const RB_SHEETS=()=>[
+ {n:'All entry sheets',v:'status',r:[
+  ['Date and back-dating',RB_BACK(),'Screen + Database'],
+  ['Who can enter','SCM: Sale Order, Inward, Outward, Scrap, Carton, Alum/Tape. Production: Slitting and Production. Quality: Job Master only. Admin / Manager: everything.','Screen + Database'],
+  ['Shape, Job Name, Job Spec','Always picked from Job Master, in that order: Shape, then only that shape\'s Job Names, then only that job\'s Specs. Job Calculator is not used for this.','Screen'],
+  ['New job / spec','"Add new job / job spec" creates a Job Master draft that Quality completes with weights.','Screen + Database'],
+  ['Negative stock','When an issue or dispatch is more than the stock: '+rv('negative_stock_mode')+' (Warn saves with a flag; Block stops it).','Rule: Negative stock']]},
+ {n:'Sale Order',v:'so',r:[
+  ['Job on a sale order','Taken from Job Master. Quantity, sent quantity and status are tracked per sale order line.','Screen']]},
+ {n:'Inward',v:'inward',r:[
+  ['Components in skid','Body, Lid, Bottom, Body+Lid, Body+Bottom, Lid+Bottom or Body+Lid+Bottom. This decides what Slitting allows.','Screen'],
+  ['Single sheet weight','L × B × W × 0.785 ÷ 100000 (kg).','Automatic'],
+  ['Weight in Nos','Net weight ÷ single sheet weight (number of sheets in the skid).','Automatic'],
+  ['Skid status','No slitting = Instock. Sheets left above '+rv('skid_wip_used_threshold')+' = WIP. Otherwise Used. Updated by the slitting count.','Automatic + Database'],
+  ['Non-moving','An Instock skid older than '+rv('non_moving_months')+' months is flagged Non-Moving in Inventory.','Rule: Non-moving skid age']]},
+ {n:'Slitting',v:'slitting',r:[
+  ['Skid list','Only Instock and WIP skids can be chosen.','Screen'],
+  ['Skid details','Vendor, variant, colour, shape, job, spec, components, weights and sheet size come from Inward and cannot be changed here.','Screen'],
+  ['Components allowed','Only the components the skid carries can be entered (Body skid: Body only; Body+Lid: Body and Lid; and so on). Entries for other components are rejected, including by the database.','Screen + Database'],
+  ['Pieces per sheet','Bush and AJ fill automatically from earlier slitting of the same job (AJ is always the same; Bush follows the sheet size). All other jobs are typed in.','Screen'],
+  ['Body / Lid / Bottom total','Pieces per sheet × slitting count.','Automatic'],
+  ['Expected production','The lowest total among the components in the skid.','Automatic'],
+  ['Weights and variance','Tin weight = Body + Lid + Bottom weight. Bifurcated skid kg = Σ(pieces per sheet × component weight) × count. Variance = Raw skid kg − Bifurcated.','Automatic'],
+  ['Needs correction flag','Old entries with a number for a component the skid does not carry (or a skid with no components in Inward) show "Correct" in the list.','Screen']]},
+ {n:'Job Master / Job Calculator',v:'quality',r:[
+  ['Who edits','Only Quality (and Admin / Manager) edit Job Master.','Screen + Database'],
+  ['Draft','A job spec is a draft until Body, Lid and Bottom weights can all be worked out.','Database'],
+  ['Job Calculator','Used for scrap calculation only. It does not feed Production, Slitting, Inward or any dropdown.','Screen']]},
+ {n:'Production',v:'production',r:[
+  ['Not tied to a skid','A production entry does not need a skid. Pick Shape, Job Name and Job Spec, then Vendor, Variant and Colour.','Screen'],
+  ['Man power and hours','Both must be more than 0.','Screen + Database'],
+  ['Man power suggestion','Mode: '+rv('mp_entry_mode')+'. Suggested = split of the Payroll present count that you can change. Manual = typed in.','Rule: Man power entry'],
+  ['Hours and breaks','Shift = '+rv('shift_hours')+' h. Punch of '+rv('break1_from')+' h or more: '+rv('break1_min')+' min out. '+rv('break2_from')+' h or more: '+rv('break2_min')+' min out. Longer than '+rv('max_punch_hours')+' h counts as a missed punch.','Rules: shift and breaks'],
+  ['Man power gap','Allocated man-hours may differ from Payroll by '+rv('mp_gap_percent')+'% before the day shows amber.','Rule: Man power gap'],
+  ['Efficiency','Expected man power (from the Man Power Matrix) ÷ man power used.','Automatic'],
+  ['FG / SFG','FG is allowed for Body, Lid, Bottom and CAN. SFG is allowed for CAN only.','Screen']]},
+ {n:'Outward',v:'outward',r:[
+  ['Dispatch','Reduces job stock. Box Register checks boxes × quantity per box against the dispatch quantity.','Screen']]},
+ {n:'Scrap',v:'scrap',r:[
+  ['Component counts','Scrap kg is converted to Body / Lid / Bottom counts using the Job Master weights.','Automatic'],
+  ['Dispatch','Scrap is never counted as dispatch.','Automatic']]},
+ {n:'Carton & Alum / Tape',v:'carton',r:[
+  ['Ledger','Entries are Purchase or Issued. The balance is Purchase minus Issued; a negative balance is flagged.','Screen + Database']]},
+ {n:'Status check',v:'status',r:[
+  ['Amber / red','A module turns amber when its last entry is '+rv('data_log_amber_days')+' days old and red at '+rv('data_log_red_days')+' days (after its allowed delay).','Rules: Status check']]}];
+const RB_REPORTS=()=>[
+ {n:'Skid details',v:'skids',r:['Every Inward skid with its automatic status (Instock / WIP / Used, limit '+rv('skid_wip_used_threshold')+' sheets).']},
+ {n:'Slitting report',v:'rslit',r:['One row per slitting with Body / Lid / Bottom counts and the weight check (variance).','Only the components the skid carries are counted.']},
+ {n:'Production report',v:'rprod',r:['Production entries with man power efficiency, FG, SFG and scrap; the summary groups by job.']},
+ {n:'Manpower report',v:'rman',r:['Actual man power comes from Payroll punches (worked hours, OT included). Break and longest-punch rules apply. Only the designations ticked in Rules are counted.']},
+ {n:'Inventory',v:'inventory',r:['Instock and WIP skids: sheets left and the Body / Lid / Bottom they can still give.','Instock skids older than '+rv('non_moving_months')+' months are flagged Non-Moving.']},
+ {n:'Daily production report',v:'daily',r:['CAN: job-wise Opening, Production, FG, SFG, Scrap, Dispatch and Closing for one day; stock rolls forward from 30 Jun 2026; Dispatch comes from Outward.','Components: Bottom is used by CAN production plus scrap of the day; Lid and Tagger by CAN dispatch of the day. Body is not tracked.']},
+ {n:'Production vs Dispatch',v:'recon',r:['CAN actual production against dispatch, job-wise and month-wise; scrap is never dispatched. Opening and Closing use the same ledger as the Daily report.']},
+ {n:'Scrap report',v:'rscrap',r:['Scrap kg and component counts by job, using the Job Master weights.']},
+ {n:'Box Register',v:'boxreg',r:['One row per dispatch line; boxes × quantity per box is checked against the dispatch quantity. Mismatches come first.']},
+ {n:'Carton stock / Alum & Tape stock',v:'cstock',r:['Purchased, issued and balance for each item. A negative balance is flagged.']}];
+VIEWS.rulebook=()=>{
+ let mode=window.__rbm||'sheet';
+ $('#main').innerHTML=`<div class="card"><h2>Rules book</h2><div class="mut" style="margin-bottom:8px">Every rule the system applies, grouped by sheet or by report. Numbers marked as settings change when Admin changes them in Rules.</div>
+ <div class="row noprint"><div class="seg"><button class="${mode==='sheet'?'on':''}" id="rbs">Sheet-wise</button><button class="${mode==='report'?'on':''}" id="rbr">Report-wise</button></div><label>Search<input id="rbq" placeholder="Type a word, e.g. skid, lid, stock"></label></div></div><div id="rbl"></div>`;
+ const paint=()=>{const q=$('#rbq').value.toLowerCase();let h='';
+  if(mode==='sheet')RB_SHEETS().forEach(s=>{const rows=s.r.filter(x=>!q||(s.n+x.join(' ')).toLowerCase().includes(q));if(!rows.length)return;
+   h+=`<div class="card"><h2>${s.n} <button class="b l noprint" data-go="${s.v}" style="float:right">Open</button></h2><div class="scroll"><table style="table-layout:fixed;width:100%"><tr><th style="width:19%">Rule</th><th style="width:61%">What the system does</th><th style="width:20%">Where it applies</th></tr>${rows.map(x=>`<tr><td style="text-align:left"><b>${x[0]}</b></td><td style="text-align:left;white-space:normal">${x[1]}</td><td style="white-space:normal">${x[2]}</td></tr>`).join('')}</table></div></div>`});
+  else RB_REPORTS().forEach(s=>{const rows=s.r.filter(x=>!q||(s.n+x).toLowerCase().includes(q));if(!rows.length)return;
+   h+=`<div class="card"><h2>${s.n} <button class="b l noprint" data-go="${s.v}" style="float:right">Open</button></h2><ul style="margin:0;padding-left:18px">${rows.map(x=>`<li>${x}</li>`).join('')}</ul></div>`});
+  $('#rbl').innerHTML=h||'<div class="card mut">No rule matches that word.</div>';
+  document.querySelectorAll('[data-go]').forEach(a=>a.onclick=()=>go(a.dataset.go))};
+ $('#rbs').onclick=()=>{window.__rbm='sheet';VIEWS.rulebook()};$('#rbr').onclick=()=>{window.__rbm='report';VIEWS.rulebook()};$('#rbq').oninput=paint;paint()};
 /* ---------------- Reports (layout, sample data) ---------------- */
 const dlcsv=(n,rows)=>{const c=rows.map(r=>r.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download=n+'.csv';a.click()};
 const uniq=(a,f)=>[...new Set(a.map(f).filter(Boolean))].sort();
