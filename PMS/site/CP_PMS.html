@@ -389,8 +389,11 @@ async function hydrate(){const {data:D,error}=await R('bootstrap');if(error){toa
  Object.keys(ATT_N).forEach(k=>delete ATT_N[k]);ATT_ROW={};
  (at.data||[]).forEach(x=>{(ATT_N[x.date]=ATT_N[x.date]||{})[x.des]=x.people;(ATT_ROW[x.date]=ATT_ROW[x.date]||{})[x.des]=x;DESIG[x.des]=!!x.counted});
  Object.keys(JC_SAVED).forEach(k=>delete JC_SAVED[k]);(jc.data||[]).forEach(x=>{JC_SAVED[x.job_spec_id]={L:x.L,B:x.B,W:x.W,nb:x.nb,nl:x.nl,nt:x.nt,sg:x.sg}});
+
  if(jm.error)throw jm.error;
+ {const V2={};(D.vv||[]).forEach(x=>{V2[x.vendor]=V2[x.vendor]||[];if(x.variant&&!V2[x.vendor].includes(x.variant))V2[x.vendor].push(x.variant)});if(Object.keys(V2).length)MOCK.vendors=V2}
  JM=(jm.data||[]).map(o=>({id:o.job_spec_id,shape:o.shape,job:String(o.job).trim(),spec:o.spec,lid:o.lid_type||'',ht:o.height,bw:o.body_w,bh:o.body_h,bt:o.body_t,lw:o.lid_w,lh:o.lid_h,lt:o.lid_t,tw:o.bot_w,th:o.bot_h,tt:o.bot_t,wb:o.wt_body,wl:o.wt_lid,wt:o.wt_bottom,bbt:o.body_base_t,bbw:o.body_base_wt,lbt:o.lid_base_t,lbw:o.lid_base_wt,tbt:o.bot_base_t,tbw:o.bot_base_wt,img:o.picture_name,draft:!!o.is_draft}));
+ {const S2={};JM.forEach(j=>{((S2[j.shape]=S2[j.shape]||{})[j.job]=S2[j.shape][j.job]||[]);if(!S2[j.shape][j.job].includes(j.spec))S2[j.shape][j.job].push(j.spec)});MOCK.shapes=S2}
  Object.keys(MM).forEach(k=>delete MM[k]);Object.keys(MMC).forEach(k=>delete MMC[k]);MXID={};
  (mx.data||[]).forEach(m=>{const k=String(m.job).trim().toUpperCase();MXID[k]=m.job_id;if(m.target)MM[k]=[+m.target,+(m.can_mp||m.can_total||0)];const c={};if(m.body_mp!=null)c.BODY=+m.body_mp;if(m.lid_mp!=null)c.LID=+m.lid_mp;if(m.bottom_mp!=null)c.BOTTOM=+m.bottom_mp;if(Object.keys(c).length)MMC[k]=c});
  if(rl.data){(rl.data.current||[]).forEach(c=>{const r=RULES.find(x=>x.k===c.key);if(r)r.v=c.value});THRESH=+rv('skid_wip_used_threshold')||50;EDIT_DAYS=+rv('edit_window_days')||7;
@@ -575,10 +578,10 @@ function slitForm(e){const isNew=!e;
  const upd=()=>{const k=SKIDS.find(x=>x.no===$('#sk').value);const f=(id,val)=>$(id).value=val??'';
   if(k){f('#st',skidStatus(k));f('#bal',Math.round(skidLeft(k)-(e&&e.skid===k.no?-e.count:0)));f('#ve',k.vendor);f('#va',k.variant);f('#col',k.colour);f('#sh',k.shape);f('#jb',k.job);f('#sp',k.spec);f('#cm',k.comp);f('#jid',jobId(k.colour,k.variant,k.shape,k.vendor,k.job,k.spec));f('#gw',k.gross);f('#nw',k.net);f('#sz',k.L+' × '+k.B+' × '+k.W);f('#ss',sheetWt(k).toFixed(4));f('#wn',skidNos(k).toFixed(1));f('#rw',k.net);
    const cu=(k.comp||'').toUpperCase();[['BODY','#lb','#wb'],['LID','#ll','#wl'],['BOTTOM','#lbt','#wbt']].forEach(([n,a1,a2])=>{const on=cu.includes(n);[a1,a2].forEach(i=>{$(i).disabled=!on;if(!on)$(i).value=0})});
-   if(!e){const jj=jmFind(k.shape,k.job,k.spec),dd0=jj&&JC_SAVED[jj.id],dd=dd0&&['BODY','LID','BOTTOM'].every(n=>cu.includes(n))?dd0:null;$('#dfl')&&($('#dfl').textContent='');
-    if(!dd){const last={};SLITS.filter(t=>t.skid!==k.no).forEach(t=>{const o=SKIDS.find(x=>x.no===t.skid);if(o&&o.job===k.job&&o.spec===k.spec&&+o.L===+k.L&&+o.B===+k.B&&+o.W===+k.W&&o.comp===k.comp&&(!last[o.comp]||t.date>last[o.comp].date))last[o.comp]=t});
+   if(!e){$('#dfl')&&($('#dfl').textContent='');
+    {const last={};SLITS.filter(t=>t.skid!==k.no).forEach(t=>{const o=SKIDS.find(x=>x.no===t.skid);if(o&&o.job===k.job&&o.spec===k.spec&&+o.L===+k.L&&+o.B===+k.B&&+o.W===+k.W&&o.comp===k.comp&&(!last[o.comp]||t.date>last[o.comp].date))last[o.comp]=t});
      const t=last[k.comp];if(t){let used=false;[['BODY','#lb','body'],['LID','#ll','lid'],['BOTTOM','#lbt','bottom']].forEach(([n,i,f])=>{if((k.comp||'').toUpperCase().includes(n)&&!$(i).dataset.t&&t[f]){$(i).value=t[f];used=true}});if(used&&$('#dfl'))$('#dfl').textContent='Pieces per sheet taken from the last slitting of this job with the same sheet size ('+t.date+'). Change them if needed.'}}
-    if(dd){let used=false;[['BODY','#lb','nb'],['LID','#ll','nl'],['BOTTOM','#lbt','nt']].forEach(([n,i,f])=>{if(cu.includes(n)&&!$(i).dataset.t&&dd[f]){$(i).value=dd[f];used=true}});if(used&&$('#dfl'))$('#dfl').textContent='Pieces per sheet filled from the default layout (Job Calculator). Change them if this skid is different.'}}
+   }
    const c=slitCalc(rec(),k);f('#sb',c.sl.body);f('#sl',c.sl.lid);f('#sbt',c.sl.bottom);f('#ex',c.exp);f('#tw',c.tin.toFixed(3));f('#bf',c.bif.toFixed(2));f('#vr',c.variance.toFixed(2))}};
  ['#lb','#ll','#lbt'].forEach(i=>$(i).addEventListener('input',ev=>{if(ev.isTrusted)ev.target.dataset.t=1}));['#sk','#cnt','#lb','#ll','#lbt','#wb','#wl','#wbt'].forEach(i=>{$(i).oninput=$(i).onchange=upd});upd();
  $('#bk').onclick=$('#cx').onclick=()=>go('slitting');
@@ -609,7 +612,7 @@ function prodForm(e){const isNew=!e;
  const cur=e?jobId(e.colour,e.variant,e.shape,e.vendor,e.job,e.spec):'';const v=k=>esc(e?.[k]??'');
  const sel=(id,l,opts,c)=>`<label>${l}<select id="${id}">${opts.map(o=>`<option ${String(c)===String(o)?'selected':''}>${o}</option>`).join('')}</select></label>`;
  $('#main').innerHTML=`<div class="row noprint" style="margin-bottom:12px"><button class="b l" id="bk">${bt('x','Back to production')}</button></div>
- <div class="card"><h2>1. Job</h2><div class="fg"><label>Shape<select id="psh"></select></label><label>Job Name<select id="pjb"></select></label><label>Job Spec<select id="psp"></select></label><label>Vendor · Variant · Colour<select id="jsel"></select></label>
+ <div class="card"><h2>1. Job</h2><div class="fg"><label>Shape<select id="psh"></select></label><label>Job Name<select id="pjb"></select></label><label>Job Spec<select id="psp"></select></label><label>Vendor<select id="psv"></select></label><label>Variant<select id="psva"></select></label><label>Colour<select id="pcol"></select></label><div class="mut" id="phint" style="grid-column:1/-1"></div>
   <label>Job ID (auto)<input id="jid" readonly></label><label>Vendor<input id="ve" readonly></label><label>Variant<input id="va" readonly></label>
   <label>Colour<input id="col" readonly></label><label>Shape<input id="sh" readonly></label><label>Job Name<input id="jb" readonly></label><label>Job Spec<input id="sp" readonly></label></div>
   <div class="row noprint" style="margin-top:8px"><button class="b l" id="njp">${bt('plus','Add new job / job spec')}</button><span class="mut">Production does not depend on a skid. Pick any job; if it is not listed, add it here.</span></div></div>
@@ -620,22 +623,30 @@ function prodForm(e){const isNew=!e;
  <div class="card"><h2>3. Carton used</h2><div class="fg"><label>Carton variation<select id="cv"><option value="">— none —</option>${Object.keys(CARTON).map(k=>`<option ${e&&e.cvar===k?'selected':''}>${k}</option>`).join('')}</select></label>
   <label>Carton name<select id="cn"><option value="">— pick variation first —</option></select></label><label>Quantity<input id="cq" type="number" value="${v('cqty')}"></label></div>
   <div class="row noprint" style="margin-top:14px"><button class="b g" id="sv2">${bt('save',isNew?'Save production':'Save changes')}</button><button class="b l" id="cx">${bt('x','Cancel')}</button></div></div>`;
- const J=()=>jobs.find(j=>j.id===$('#jsel').value);
+ const J=()=>{const sh=$('#psh').value,jb=$('#pjb').value,sp=$('#psp').value,ve=$('#psv').value,va=$('#psva').value,co=$('#pcol').value;if(!(sh&&jb&&sp&&ve&&va&&co))return null;return {id:jobId(co,va,sh,ve,jb,sp),colour:co,variant:va,shape:sh,vendor:ve,job:jb,spec:sp}};
  const po=(id,arr,ph,cur)=>{$(id).innerHTML=`<option value="">${ph}</option>`+arr.map(o=>`<option value="${esc(o)}" ${o===cur?'selected':''}>${esc(o)}</option>`).join('')};
- const cj0=jobs.find(j=>j.id===cur);
- const fSh=()=>po('#psh',[...new Set(jobs.map(j=>j.shape))].sort(),'— pick shape —',cj0?.shape);
- const fJb=(c)=>{const s=$('#psh').value;po('#pjb',[...new Set(jobs.filter(j=>j.shape===s).map(j=>j.job))].sort(),s?'— pick job name —':'— pick shape first —',c)};
- const fSp=(c)=>{const s=$('#psh').value,jb=$('#pjb').value;po('#psp',[...new Set(jobs.filter(j=>j.shape===s&&j.job===jb).map(j=>j.spec))].sort(),jb?'— pick job spec —':'— pick job name first —',c)};
- const fRf=(c)=>{const s=$('#psh').value,jb=$('#pjb').value,sp=$('#psp').value,L=sp?jobs.filter(j=>j.shape===s&&j.job===jb&&j.spec===sp):[];
-  $('#jsel').innerHTML=(L.length===1?'':`<option value="">${sp?'— pick vendor / variant —':'— pick job spec first —'}</option>`)+L.map(j=>`<option value="${j.id}" ${(c===j.id||L.length===1)?'selected':''}>${esc(j.vendor)} · ${esc(j.variant)} · ${esc(j.colour)}</option>`).join('')};
- fSh();fJb(cj0?.job);fSp(cj0?.spec);fRf(cur);
- $('#psh').onchange=()=>{fJb();fSp();fRf();upd()};$('#pjb').onchange=()=>{fSp();fRf();upd()};$('#psp').onchange=()=>{fRf();upd()};
- $('#njp').onclick=()=>newJobModal(j=>{const id=j.jid;if(!jobs.find(x=>x.id===id))jobs.push({id,colour:j.colour,variant:j.variant,shape:j.shape,vendor:j.vendor,job:j.job,spec:j.spec});fSh();$('#psh').value=j.shape;fJb(j.job);fSp(j.spec);fRf(id);upd()});
+ const cj0=e?{shape:e.shape,job:e.job,spec:e.spec,vendor:e.vendor,variant:e.variant,colour:e.colour}:null;
+ /* shape, job name and job spec always come from Job Master */
+ const fSh=()=>po('#psh',Object.keys(MOCK.shapes).sort(),'— pick shape —',cj0?.shape);
+ const fJb=c=>{const s=$('#psh').value;po('#pjb',Object.keys(MOCK.shapes[s]||{}).sort(),s?'— pick job name —':'— pick shape first —',c)};
+ const fSp=c=>{const s=$('#psh').value,jb=$('#pjb').value;po('#psp',((MOCK.shapes[s]||{})[jb]||[]).slice().sort(),jb?'— pick job spec —':'— pick job name first —',c)};
+ const fVe=c=>po('#psv',Object.keys(MOCK.vendors).sort(),'— pick vendor —',c);
+ const fVa=c=>{const v=$('#psv').value;po('#psva',(MOCK.vendors[v]||[]).slice().sort(),v?'— pick variant —':'— pick vendor first —',c)};
+ const fCo=c=>po('#pcol',MOCK.colours,'— pick colour —',c);
+ const prior=()=>DB_JOBS.filter(j=>j.shape===$('#psh').value&&j.job===$('#pjb').value&&j.spec===$('#psp').value);
+ const fHint=auto=>{const L=prior();$('#phint').textContent=L.length?'Produced before for: '+L.slice(0,6).map(j=>j.vendor+' · '+j.variant+' · '+j.colour).join('   |   '):($('#psp').value?'No earlier entry for this job spec - pick the vendor, variant and colour.':'');
+  if(auto&&!e&&L.length===1){$('#psv').value=L[0].vendor;fVa(L[0].variant);$('#pcol').value=L[0].colour}};
+ fSh();fJb(cj0?.job);fSp(cj0?.spec);fVe(cj0?.vendor);fVa(cj0?.variant);fCo(cj0?.colour);fHint(false);
+ $('#psh').onchange=()=>{fJb();fSp();fHint();upd()};$('#pjb').onchange=()=>{fSp();fHint();upd()};$('#psp').onchange=()=>{fHint(true);upd()};
+ $('#psv').onchange=()=>{fVa();upd()};$('#psva').onchange=()=>upd();$('#pcol').onchange=()=>upd();
+ $('#njp').onclick=()=>newJobModal(j=>{((MOCK.shapes[j.shape]=MOCK.shapes[j.shape]||{})[j.job]=MOCK.shapes[j.shape][j.job]||[]);if(!MOCK.shapes[j.shape][j.job].includes(j.spec))MOCK.shapes[j.shape][j.job].push(j.spec);
+  (MOCK.vendors[j.vendor]=MOCK.vendors[j.vendor]||[]);if(!MOCK.vendors[j.vendor].includes(j.variant))MOCK.vendors[j.vendor].push(j.variant);
+  fSh();$('#psh').value=j.shape;fJb(j.job);fSp(j.spec);fVe(j.vendor);fVa(j.variant);$('#pcol').value=j.colour;fHint();upd()});
  const upd=()=>{const j=J(),f=(i,x)=>$(i).value=x??'';if(j){f('#jid',j.id);f('#ve',j.vendor);f('#va',j.variant);f('#col',j.colour);f('#sh',j.shape);f('#jb',j.job);f('#sp',j.spec);f('#dp',dispatched(j.id))}
   const cp=$('#cm').value;$('#fg').disabled=!['BODY','LID','BOTTOM','CAN'].includes(cp);$('#sf').disabled=cp!=='CAN';if($('#fg').disabled)$('#fg').value=0;if($('#sf').disabled)$('#sf').value=0;
   mpAssist(j,e);
   const r={job:j?.job||'',comp:$('#cm').value,actual:+$('#ap').value,hrs:+$('#hr').value},em=expMP(r);f('#em',em||'');f('#ef',em&&+$('#mp').value?(em/+$('#mp').value*100).toFixed(0)+' %':'')};
- mpTouched=hrTouched=!!e;['#jsel','#cm','#ap','#mp','#hr','#d'].forEach(i=>$(i).oninput=$(i).onchange=ev=>{if(ev.type==='input'&&ev.target.id==='mp')mpTouched=true;if(ev.type==='input'&&ev.target.id==='hr')hrTouched=true;upd()});upd();
+ mpTouched=hrTouched=!!e;['#cm','#ap','#mp','#hr','#d'].forEach(i=>$(i).oninput=$(i).onchange=ev=>{if(ev.type==='input'&&ev.target.id==='mp')mpTouched=true;if(ev.type==='input'&&ev.target.id==='hr')hrTouched=true;upd()});upd();
  const cv=()=>{$('#cn').innerHTML='<option value="">— pick —</option>'+(CARTON[$('#cv').value]||[]).map(n=>`<option ${e&&e.cname===n?'selected':''}>${esc(n)}</option>`).join('')};$('#cv').onchange=cv;cv();
  $('#bk').onclick=$('#cx').onclick=()=>go('production');
  $('#sv2').onclick=()=>{const j=J();if(!j)return toast('Pick the job',true);if(!+$('#ap').value)return toast('Enter the actual production',true);if(!(+$('#hr').value>0))return toast('Enter the hours consumed',true);if(!(+$('#mp').value>0))return toast('Enter the man power',true);
