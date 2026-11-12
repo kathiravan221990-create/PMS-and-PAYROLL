@@ -3,3 +3,4 @@ pms_10_production_carton: pms_api.production_save now stores carton_item_id / ca
 Data: core.user_roles row pms/admin granted to the existing core admin user.
 pms_11_todo_list: pms_api.todo_list() role-aware "To check and update" counts and first 30 rows.
 pms_12_backdate_names: pms_api.backdate_list now returns by_name / reviewed_name.
+pms_13_att_range: pms_api.att_range(from,to) returns Payroll attendance per designation per day (max 92 days).

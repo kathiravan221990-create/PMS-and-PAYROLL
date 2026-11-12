@@ -24,7 +24,7 @@ const R=(fn,a)=>track(sb.schema('pms_api').rpc(fn,a||{}));
 const pcan=p=>(ME?.permissions?.pms||[]).includes(p);
 let TODAY=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
 let EDIT_DAYS=7;let MXID={},MM_DIRTY=new Set();
-const SAMPLE_VIEWS=['rman','jobcalc'];
+const SAMPLE_VIEWS=[];let ATT_ROW={};
 let DB_JOBS=[],CI_ID={},AI_ID={};
 function cleanErr(m){m=String(m||'');const map={edit_window_closed:'This entry is older than '+EDIT_DAYS+' days. Only an Administrator or Manager can change it, or enter it with a back-date reason.',backdate_reason_required:'This date is older than '+EDIT_DAYS+' days. Type the reason for the back-dated entry.',skid_no_exists:'This skid number / name already exists.',skid_has_slitting:'This skid already has slitting entries. Delete those first.',man_power_required:'Enter the man power.',hours_required:'Enter the hours.',not_logged_in:'Please log in again.'};
  for(const k in map)if(m.includes(k))return map[k];if(m.includes('permission_denied'))return 'You do not have permission for this. ('+m+')';return m}
@@ -50,7 +50,11 @@ async function hydrate(){const {data:D,error}=await R('bootstrap');if(error){toa
  ATAPE=D.alum_items.map(a=>a.name);AI_ID={};D.alum_items.forEach(a=>AI_ID[a.name]=a.id);
  DB_JOBS=D.jobs;const V={},S={};D.jobs.forEach(j=>{(V[j.vendor]=V[j.vendor]||[]);if(!V[j.vendor].includes(j.variant))V[j.vendor].push(j.variant);((S[j.shape]=S[j.shape]||{})[j.job]=S[j.shape][j.job]||[]);if(!S[j.shape][j.job].includes(j.spec))S[j.shape][j.job].push(j.spec)});
  MOCK.vendors=V;MOCK.shapes=S;MOCK.colours=D.colours;
- const [jm,mx,rl]=await Promise.all([R('job_master_list'),R('matrix_list'),R('rules_list')]);
+ const d0=new Date(Date.parse(TODAY)-92*864e5).toISOString().slice(0,10);
+ const [jm,mx,rl,at,jc]=await Promise.all([R('job_master_list'),R('matrix_list'),R('rules_list'),R('att_range',{p_from:d0,p_to:TODAY}),R('job_calc_list')]);
+ Object.keys(ATT_N).forEach(k=>delete ATT_N[k]);ATT_ROW={};
+ (at.data||[]).forEach(x=>{(ATT_N[x.date]=ATT_N[x.date]||{})[x.des]=x.people;(ATT_ROW[x.date]=ATT_ROW[x.date]||{})[x.des]=x;DESIG[x.des]=!!x.counted});
+ Object.keys(JC_SAVED).forEach(k=>delete JC_SAVED[k]);(jc.data||[]).forEach(x=>{JC_SAVED[x.job_spec_id]={L:x.L,B:x.B,W:x.W,nb:x.nb,nl:x.nl,nt:x.nt,sg:x.sg}});
  if(jm.error)throw jm.error;
  JM=(jm.data||[]).map(o=>({id:o.job_spec_id,shape:o.shape,job:String(o.job).trim(),spec:o.spec,lid:o.lid_type||'',ht:o.height,bw:o.body_w,bh:o.body_h,bt:o.body_t,lw:o.lid_w,lh:o.lid_h,lt:o.lid_t,tw:o.bot_w,th:o.bot_h,tt:o.bot_t,wb:o.wt_body,wl:o.wt_lid,wt:o.wt_bottom,bbt:o.body_base_t,bbw:o.body_base_wt,lbt:o.lid_base_t,lbw:o.lid_base_wt,tbt:o.bot_base_t,tbw:o.bot_base_wt,img:o.picture_name,draft:!!o.is_draft}));
  Object.keys(MM).forEach(k=>delete MM[k]);Object.keys(MMC).forEach(k=>delete MMC[k]);MXID={};
@@ -525,7 +529,7 @@ VIEWS.jobcalc=()=>{
  $('#jb').onchange=()=>{opt('#sp',(MOCK.shapes[$('#sh').value]||{})[$('#jb').value]||[],'— pick —');calc()};
  $('#sp').onchange=()=>{const j=cur(),k=j?j.id:0,s=JC_SAVED[k];if(s){$('#L').value=s.L;$('#B').value=s.B;$('#W').value=s.W;$('#nb').value=s.nb;$('#nl').value=s.nl;$('#nt').value=s.nt;$('#sg').value=s.sg;$('#sm').textContent='Saved layout loaded'}else $('#sm').textContent='';calc()};
  document.querySelectorAll('#main input').forEach(i=>i.oninput=calc);
- $('#sv').onclick=()=>{const j=cur();if(!j)return toast('Pick the job first',true);JC_SAVED[j.id]={L:$('#L').value,B:$('#B').value,W:$('#W').value,nb:$('#nb').value,nl:$('#nl').value,nt:$('#nt').value,sg:$('#sg').value};toast('Layout saved for this job')}};
+ $('#sv').onclick=()=>{const j=cur();if(!j)return toast('Pick the job first',true);const v={L:$('#L').value,B:$('#B').value,W:$('#W').value,nb:$('#nb').value,nl:$('#nl').value,nt:$('#nt').value,sg:$('#sg').value};R('job_calc_save',{p:{job_spec_id:j.id,...v}}).then(({error})=>{if(error)return toast(cleanErr(error.message),true);JC_SAVED[j.id]=v;toast('Layout saved for this job')})}};
 /* ---------------- Carton & Alum/Tape (purchase / issue ledger) ---------------- */
 let ATAPE=['Bopp Tape - Brown','Bopp Tape - Transparent','Aluminium Foil'];
 let CLED=[{id:1,date:'2026-11-03',type:'PURCHASE',item:'Wallet Carton - 3 Ply',variation:'3 PLY - CARTONS',qty:5000,rem:'Supplier invoice 4471'},
@@ -611,7 +615,7 @@ const DESIG_NAMES={HELPER:'Helper',OPER:'Operator (OPER)',OPERATOR:'Operator',PR
 let DESIG={HELPER:true,OPER:true,OPERATOR:true,PROD:true,SUPERVISOR:false,ENG:false,HK:false,ADMIN:false,STORE:false,QC:false,MAINT:false};
 const brk=h=>{const m1=rv('break1_min')/60,m2=rv('break2_min')/60;if(h>=rv('break2_from'))return m2;if(h>=rv('break1_from'))return m1;return Math.max(0,Math.min(h-rv('shift_hours'),m1))};
 const workedOf=sp=>{const c=Math.min(sp,rv('max_punch_hours'));return c-brk(c)};
-const desStat=(d,k)=>{const sp=spansOf(d,k),w=sp.map(workedOf),sh=rv('shift_hours');return {n:sp.length,punch:sp.reduce((a,x)=>a+x,0),h:w.reduce((a,x)=>a+x,0),ot:w.reduce((a,x)=>a+Math.max(0,x-sh),0)}};
+const desStat=(d,k)=>{const x=(ATT_ROW[d]||{})[k];return x?{n:x.people,punch:+x.punch_h,h:+x.worked_h,ot:+x.ot_h}:{n:0,punch:0,h:0,ot:0}};
 const attOn=d=>{if(!ATT_N[d])return null;const sh=rv('shift_hours');let n=0,h=0,ot=0;Object.keys(ATT_N[d]).forEach(k=>{if(DESIG[k]){const x=desStat(d,k);n+=x.n;h+=x.h;ot+=x.ot}});return {n,h,ot,eq:h/sh,sh}};
 VIEWS.rman=()=>{
  const dates=Object.keys(PAYROLL_ATT).sort().reverse();
