@@ -7,3 +7,6 @@ pms_13_att_range: pms_api.att_range(from,to) returns Payroll attendance per desi
 
 ## pms_14_bootstrap_vendor_variants
 `pms_api.bootstrap` now also returns `vv` (vendor/variant pairs). Shape / Job Name / Job Spec dropdowns in every module come from Job Master only; Job Calculator is used for scrap calculation only.
+
+## pms_15_slitting_component_rule
+`pms_api.slitting_save` now reads the components from the skid's Inward record (not from the browser) and rejects any layout / weight / jally entry for a component the skid does not carry (e.g. BODY skid: Lid and Bottom rejected; BODY,LID: Bottom rejected). A skid with no components set in Inward cannot be slit until Inward is corrected. Existing rows are not changed.
