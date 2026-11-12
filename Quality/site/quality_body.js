@@ -112,11 +112,11 @@ async function hydrate(){
  JM=(jm.data||[]).map(o=>({id:o.job_spec_id,shape:o.shape,job:String(o.job).trim(),spec:o.spec,lid:o.lid_type||'',ht:o.height,bw:o.body_w,bh:o.body_h,bt:o.body_t,lw:o.lid_w,lh:o.lid_h,lt:o.lid_t,tw:o.bot_w,th:o.bot_h,tt:o.bot_t,wb:o.wt_body,wl:o.wt_lid,wt:o.wt_bottom,bbt:o.body_base_t,bbw:o.body_base_wt,lbt:o.lid_base_t,lbw:o.lid_base_wt,tbt:o.bot_base_t,tbw:o.bot_base_wt,img:o.picture_name,draft:!!o.is_draft}));
  syncShapes();
  Object.keys(JC_SAVED).forEach(k=>delete JC_SAVED[k]);(jc.data||[]).forEach(x=>{JC_SAVED[x.job_spec_id]={L:x.L,B:x.B,W:x.W,nb:x.nb,nl:x.nl,nt:x.nt,sg:x.sg}})}
-function showLogin(msg){$('#app').innerHTML=`<div class="login-wrap"><div class="login"><img src="__BRAND__" alt="Classic Pack" style="height:70px"><h1>CP QUALITY</h1><div class="sub">Sign in to continue</div>
+function showLogin(msg){$('#app').innerHTML=`<div class="login-wrap"><div class="login"><div style="background:#fff;border-radius:14px;padding:10px 18px;margin:0 auto 12px;width:max-content"><img src="__LOGO__" alt="Classic Pack" style="height:96px;display:block"></div><h1>CP QUALITY</h1><div class="sub">Sign in to continue</div>
 <label>User ID<input id="em" autocomplete="username" autocapitalize="off" placeholder="Enter your User ID"></label>
 <label>Password<input id="pw" type="password" autocomplete="current-password" placeholder="Enter your password"></label>
 <button class="b" id="go">${I('inn')||''} Log in</button>${msg?`<div class="msg err">${esc(msg)}</div>`:''}</div></div>`;
- const go2=async()=>{const {error}=await sb.auth.signInWithPassword({email:(v=>v.includes('@')?v:v.toLowerCase()+'@classicpack.com')($('#em').value.trim()),password:$('#pw').value});if(error)return showLogin(error.message);start()};
+ const go2=async()=>{const {error}=await sb.auth.signInWithPassword({email:(v=>v.split('@')[0].replace(/\s/g,'').toLowerCase()+'@classicpack.com')($('#em').value.trim()),password:$('#pw').value});if(error)return showLogin(error.message);start()};
  $('#go').onclick=go2;$('#pw').onkeydown=e=>{if(e.key==='Enter')go2()}}
 async function start(){const {data:s}=await sb.auth.getSession();if(!s.session)return showLogin();
  const {data,error}=await C('me');if(error)return showLogin(cleanErr(error.message));

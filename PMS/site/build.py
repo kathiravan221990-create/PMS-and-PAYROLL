@@ -6,7 +6,7 @@ brand=re.search(r'<div class="brand"><img src="(data:image/png;base64,[^"]+)"',s
 ic=src[src.find('const IC='):src.find('const NAV=')]
 nav=src[src.find('const NAV='):]; nav=nav[:nav.find('};')+2]
 h=src[src.find('const I=n=>'):src.find('function csv(')]
-body=open('pms_body.js').read().replace('__BRAND__',brand)
+body=open('pms_body.js').read().replace('__BRAND__',brand).replace('__LOGO__',open('logo_login.txt').read())
 out=head+extra+'</style></head><body><div id="app"></div><script>\n'+ic+nav+'\n'+h+'\n'+body+'\n</script></body></html>'
 open('CP_PMS.html','w',encoding='utf8').write(out)
 open('/tmp/pms_check.js','w').write(re.search(r'<script>([\s\S]*)</script>',out).group(1))

@@ -64,11 +64,11 @@ async function hydrate(){const {data:D,error}=await R('bootstrap');if(error){toa
  (mx.data||[]).forEach(m=>{const k=String(m.job).trim().toUpperCase();MXID[k]=m.job_id;if(m.target)MM[k]=[+m.target,+(m.can_mp||m.can_total||0)];const c={};if(m.body_mp!=null)c.BODY=+m.body_mp;if(m.lid_mp!=null)c.LID=+m.lid_mp;if(m.bottom_mp!=null)c.BOTTOM=+m.bottom_mp;if(Object.keys(c).length)MMC[k]=c});
  if(rl.data){(rl.data.current||[]).forEach(c=>{const r=RULES.find(x=>x.k===c.key);if(r)r.v=c.value});THRESH=+rv('skid_wip_used_threshold')||50;EDIT_DAYS=+rv('edit_window_days')||7;
   RHIST.length=0;(rl.data.history||[]).forEach(h=>{const r=RULES.find(x=>x.k===h.key);RHIST.push({on:String(h.at||'').slice(0,10),n:r?r.n:h.key,o:'',v:(h.value&&typeof h.value==='object')?JSON.stringify(h.value):h.value,f:h.from,why:h.why||'',by:''})})}}
-function showLogin(msg){$('#app').innerHTML=`<div class="login-wrap"><div class="login"><img src="__BRAND__" alt="Classic Pack" style="height:70px"><h1>PMS</h1><div class="sub">Sign in to continue</div>
+function showLogin(msg){$('#app').innerHTML=`<div class="login-wrap"><div class="login"><div style="background:#fff;border-radius:14px;padding:10px 18px;margin:0 auto 12px;width:max-content"><img src="__LOGO__" alt="Classic Pack" style="height:96px;display:block"></div><h1>PMS</h1><div class="sub">Sign in to continue</div>
 <label>User ID<input id="em" autocomplete="username" autocapitalize="off" placeholder="Enter your User ID"></label>
 <label>Password<input id="pw" type="password" autocomplete="current-password" placeholder="Enter your password"></label>
 <button class="b" id="go">${I('inn')||''} Log in</button>${msg?`<div class="msg err">${esc(msg)}</div>`:''}</div></div>`;
- const go2=async()=>{const {error}=await sb.auth.signInWithPassword({email:(v=>v.includes('@')?v:v.toLowerCase()+'@classicpack.com')($('#em').value.trim()),password:$('#pw').value});if(error)return showLogin(error.message);start()};
+ const go2=async()=>{const {error}=await sb.auth.signInWithPassword({email:(v=>v.split('@')[0].replace(/\s/g,'').toLowerCase()+'@classicpack.com')($('#em').value.trim()),password:$('#pw').value});if(error)return showLogin(error.message);start()};
  $('#go').onclick=go2;$('#pw').onkeydown=e=>{if(e.key==='Enter')go2()}}
 async function start(){const {data:s}=await sb.auth.getSession();if(!s.session)return showLogin();
  const {data,error}=await C('me');if(error)return showLogin(cleanErr(error.message));
