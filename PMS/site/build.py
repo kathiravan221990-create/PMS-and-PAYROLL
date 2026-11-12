@@ -1,7 +1,7 @@
 import re
 src=open('/home/claude/build/CP_PAYROLL.html',encoding='utf8').read()
 head=src[:src.find('</style>')].replace('<title>CP PAYROLL</title>','<title>CP PMS</title>')
-extra=".kpi>div{background:linear-gradient(150deg,#143a78,#0a2150)!important;color:#f0cf6a!important;border:1px solid rgba(240,207,106,.55)!important;border-left:5px solid #d9b341!important;box-shadow:0 4px 14px rgba(0,0,0,.35);font-weight:600}.kpi>div b{color:#f0cf6a!important;font-size:20px}\n"
+extra="aside nav .ngrp{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}aside nav .ngrp:hover{color:#f0cf6a}aside nav .ngrp i{font-style:normal;font-size:11px;transition:transform .15s}aside nav .ngrp.closed i{transform:rotate(-90deg)}aside nav .gbody.closed{display:none}body.sc aside nav .gbody{display:block!important}\\n.kpi>div{background:linear-gradient(150deg,#143a78,#0a2150)!important;color:#f0cf6a!important;border:1px solid rgba(240,207,106,.55)!important;border-left:5px solid #d9b341!important;box-shadow:0 4px 14px rgba(0,0,0,.35);font-weight:600}.kpi>div b{color:#f0cf6a!important;font-size:20px}\n"
 brand=re.search(r'<div class="brand"><img src="(data:image/png;base64,[^"]+)"',src).group(1)
 ic=src[src.find('const IC='):src.find('const NAV=')]
 nav=src[src.find('const NAV='):]; nav=nav[:nav.find('};')+2]

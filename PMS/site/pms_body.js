@@ -64,7 +64,7 @@ async function hydrate(){const {data:D,error}=await R('bootstrap');if(error){toa
  (mx.data||[]).forEach(m=>{const k=String(m.job).trim().toUpperCase();MXID[k]=m.job_id;if(m.target)MM[k]=[+m.target,+(m.can_mp||m.can_total||0)];const c={};if(m.body_mp!=null)c.BODY=+m.body_mp;if(m.lid_mp!=null)c.LID=+m.lid_mp;if(m.bottom_mp!=null)c.BOTTOM=+m.bottom_mp;if(Object.keys(c).length)MMC[k]=c});
  if(rl.data){(rl.data.current||[]).forEach(c=>{const r=RULES.find(x=>x.k===c.key);if(r)r.v=c.value});THRESH=+rv('skid_wip_used_threshold')||50;EDIT_DAYS=+rv('edit_window_days')||7;
   RHIST.length=0;(rl.data.history||[]).forEach(h=>{const r=RULES.find(x=>x.k===h.key);RHIST.push({on:String(h.at||'').slice(0,10),n:r?r.n:h.key,o:'',v:(h.value&&typeof h.value==='object')?JSON.stringify(h.value):h.value,f:h.from,why:h.why||'',by:''})})}}
-function showLogin(msg){$('#app').innerHTML=`<div class="login-wrap"><div class="login"><div style="background:#fff;border-radius:14px;padding:10px 18px;margin:0 auto 12px;width:max-content"><img src="__LOGO__" alt="Classic Pack" style="height:96px;display:block"></div><h1>PMS</h1><div class="sub">Sign in to continue</div>
+function showLogin(msg){$('#app').innerHTML=`<div class="login-wrap"><div class="login"><img src="__LOGO__" alt="Classic Pack"><h1>PMS</h1><div class="sub">Sign in to continue</div>
 <label>User ID<input id="em" autocomplete="username" autocapitalize="off" placeholder="Enter your User ID"></label>
 <label>Password<input id="pw" type="password" autocomplete="current-password" placeholder="Enter your password"></label>
 <button class="b" id="go">${I('inn')||''} Log in</button>${msg?`<div class="msg err">${esc(msg)}</div>`:''}</div></div>`;
@@ -93,7 +93,7 @@ function newJobModal(cb){const m=modal(`<h2>Add new job / job spec</h2><div clas
 let STOCK_BASE_LIVE=null;
 const NAVMAP={status:'status',so:'invoice',inward:'employees',outward:'register',scrap:'revisions',quality:'status',carton:'otherpay',slitting:'attendance',production:'dashboard',manpower:'users',skids:'photos',inventory:'months',daily:'slip',recon:'pfesi',datalog:'shifts',masters:'contractors',rules:'rulebook',rulebook:'rulebook',importx:'otherpay',tracking:'otherpay',backdate:'revisions',rscrap:'revisions',rslit:'attendance',rprod:'dashboard',rman:'users',jobcalc:'billing',boxreg:'register',cstock:'otherpay',astock:'otherpay'};
 const TITLES={rulebook:'Rules book',importx:'Import Excel',so:'Sale Order',inward:'Inward',outward:'Outward',scrap:'Scrap entry',quality:'Job Master',carton:'Carton & Alum/Tape entry',slitting:'Slitting',production:'Production',manpower:'Manpower',skids:'Skid details',inventory:'Inventory',daily:'Daily production report',recon:'Production vs Dispatch',datalog:'Data log',status:'Status check',masters:'Man Power Matrix',rules:'Rules',tracking:'Stock tracking',backdate:'Back-date review',rscrap:'Scrap report',rslit:'Slitting report',rprod:'Production report',rman:'Manpower report',jobcalc:'Job Calculator',boxreg:'Box Register',cstock:'Carton stock',astock:'Alum & Tape stock'};
-const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register'],['cstock','Carton stock'],['astock','Alum & Tape stock']]],['SETTINGS',[['masters','Man Power Matrix'],['tracking','Stock tracking'],['backdate','Back-date review'],['importx','Import Excel'],['rulebook','Rules book'],['rules','Rules']]]];
+const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['SETTINGS',[['masters','Man Power Matrix'],['tracking','Stock tracking'],['backdate','Back-date review'],['importx','Import Excel'],['rulebook','Rules book'],['rules','Rules']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register'],['cstock','Carton stock'],['astock','Alum & Tape stock']]]];
 let THRESH=50;
 // delete an entry from a list: confirm first, some rows are protected (guard returns the reason)
 const bindDel=(list,key,what,label,after,guard)=>document.querySelectorAll('[data-del]').forEach(a=>a.onclick=()=>{
@@ -118,13 +118,25 @@ const slitUsed=n=>SLITS.filter(t=>t.skid===n).reduce((a,t)=>a+(+t.count||0),0);
 const skidLeft=x=>skidNos(x)-slitUsed(x.no);
 const skidStatus=x=>!SLITS.some(t=>t.skid===x.no)?'Instock':(skidLeft(x)>THRESH?'WIP':'Used');
 const LIVE=['skids','rslit','rprod','rscrap','inventory','daily','recon','boxreg','cstock','astock','rules','status','masters','rman','so','inward','outward','scrap','carton','quality','jobcalc','slitting','production'];let SKIDS=MOCK.skids.slice(),sideCollapsed=false;
+/* ---- month + date filters (all months present in the data, newest first; From / To date pickers) ---- */
+const _mlab=m=>new Date(m+'-01T00:00:00Z').toLocaleString('en',{month:'short',year:'numeric',timeZone:'UTC'}).toUpperCase();
+function monthFilter(arr,dflt,withRange){const set=new Set((arr||[]).map(x=>String(x.date||'').slice(0,7)).filter(m=>/^\d{4}-\d{2}$/.test(m)));set.add(TODAY.slice(0,7));
+ const ms=[...set].sort().reverse();const sel=dflt==='cur'?TODAY.slice(0,7):'';
+ return '<label>Month<select id="em"><option value="">All months</option>'+ms.map(m=>'<option value="'+m+'"'+(m===sel?' selected':'')+'>'+_mlab(m)+'</option>').join('')+'</select></label>'+(withRange===false?'':'<label>From date<input type="date" id="df"></label><label>To date<input type="date" id="dt"></label>')}
+const dfOk=d=>{d=String(d||'');const m=document.getElementById('em'),a=document.getElementById('df'),b=document.getElementById('dt');return (!m||!m.value||d.slice(0,7)===m.value)&&(!a||!a.value||d>=a.value)&&(!b||!b.value||d<=b.value)};
+const dfBind=f=>['em','df','dt'].forEach(i=>{const e=document.getElementById(i);if(e)e.onchange=f});
+function navOpen(){try{const j=JSON.parse(localStorage.getItem('pms_nav_open')||'null');if(Array.isArray(j))return new Set(j)}catch(e){}return new Set(['STATUS','SCM'])}
+function navSave(o){try{localStorage.setItem('pms_nav_open',JSON.stringify([...o]))}catch(e){}}
+function navApply(){const o=navOpen();document.querySelectorAll('aside nav .ngrp').forEach(h=>{const open=o.has(h.dataset.g);h.classList.toggle('closed',!open);const b=document.querySelector('aside nav .gbody[data-g="'+h.dataset.g+'"]');if(b)b.classList.toggle('closed',!open)})}
+function navReveal(v){const g=(GROUPS.find(x=>x[1].some(t=>t[0]===v))||[])[0];if(!g)return;const o=navOpen();if(!o.has(g)){o.add(g);navSave(o);navApply()}}
 function shell(){
  $('#app').innerHTML=`<div class="layout"><aside><div class="brand"><img src="__BRAND__"><div><b>CP PMS</b><span>Classic Pack Pvt Ltd</span></div></div>
- <nav>${GROUPS.map(([g,a])=>[g,a.filter(t=>(t[0]!=='tracking'||pcan('tracking_edit'))&&(t[0]!=='backdate'||pcan('backdate_review'))&&(t[0]!=='importx'||pcan('rules_edit')))]).map(([g,a])=>`<div class="ngrp">${g}</div>`+a.map(t=>`<button data-v="${t[0]}" title="${t[1]}"><span class="tile">${NAV[NAVMAP[t[0]]]}</span><span class="lb">${t[1]}</span></button>`).join('')).join('')}</nav><div class="side-foot">Role: <b style="color:var(--gold2)">${esc(ME&&ME.roles&&ME.roles.pms||"")}</b></div></aside>
+ <nav>${GROUPS.map(([g,a])=>[g,a.filter(t=>(t[0]!=='tracking'||pcan('tracking_edit'))&&(t[0]!=='backdate'||pcan('backdate_review'))&&(t[0]!=='importx'||pcan('rules_edit')))]).map(([g,a])=>`<div class="ngrp" data-g="${g}"><span>${g}</span><i>▾</i></div><div class="gbody" data-g="${g}">`+a.map(t=>`<button data-v="${t[0]}" title="${t[1]}"><span class="tile">${NAV[NAVMAP[t[0]]]}</span><span class="lb">${t[1]}</span></button>`).join('')+'</div>').join('')}</nav><div class="side-foot">Role: <b style="color:var(--gold2)">${esc(ME&&ME.roles&&ME.roles.pms||"")}</b></div></aside>
  <div class="content"><div class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="menu" id="mn" title="Expand / collapse menu">${I('menu')}</button><h1 id="ttl"></h1></div><div class="who"><div class="av">${esc((ME&&ME.full_name||"?")[0].toUpperCase())}</div><div>${esc(ME&&ME.full_name||"")}</div><button id="lo">${I('logout')} Log out</button></div></div><main id="main"></main></div></div>`;
  document.querySelectorAll('aside nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+ navApply();document.querySelectorAll('aside nav .ngrp').forEach(h=>h.onclick=()=>{const o=navOpen();const g=h.dataset.g;if(o.has(g))o.delete(g);else o.add(g);navSave(o);navApply()});
  $('#mn').onclick=()=>{sideCollapsed=!sideCollapsed;document.body.classList.toggle('sc',sideCollapsed)}}
-function go(v){VIEW=v;document.querySelectorAll('aside nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('#ttl').innerHTML=I('open')+' '+TITLES[v];(VIEWS[v]||VIEWS.soon)();if(SAMPLE_VIEWS.includes(v)){const m=$('#main');if(m)m.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#e0b53a"><b style="color:#f0cf6a">Sample data</b> <span class="mut">This screen is not connected to the live database yet. Changes here are not saved.</span></div>')}}
+function go(v){VIEW=v;navReveal(v);document.querySelectorAll('aside nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('#ttl').innerHTML=I('open')+' '+TITLES[v];(VIEWS[v]||VIEWS.soon)();if(SAMPLE_VIEWS.includes(v)){const m=$('#main');if(m)m.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#e0b53a"><b style="color:#f0cf6a">Sample data</b> <span class="mut">This screen is not connected to the live database yet. Changes here are not saved.</span></div>')}}
 const VIEWS={};
 VIEWS.soon=()=>{$('#main').innerHTML=`<div class="card"><h2>${TITLES[VIEW]}</h2><div class="mut">Layout comes in the next batch.</div></div>`};
 
@@ -147,9 +159,9 @@ VIEWS.so=()=>{
 VIEWS.inward=()=>{
  $('#main').innerHTML=`<div class="card"><h2>Inward skids</h2><div class="row noprint"><label>Search<input id="es" placeholder="Skid no, DC no, vendor, job"></label>
  <label>Status<select id="ea"><option value="">All</option><option>Instock</option><option>WIP</option><option>Used</option></select></label>
- <label>Month<select id="em"><option value="">All</option><option>NOV 2026</option><option>JUL 2026</option></select></label>
+ ${monthFilter(SKIDS,'')}
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New skid')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
- const load=()=>{const t=$('#es').value.toLowerCase(),s=$('#ea').value;const d=SKIDS.filter(x=>(!s||skidStatus(x)===s)&&(!t||Object.values(x).join(' ').toLowerCase().includes(t)));
+ const load=()=>{const t=$('#es').value.toLowerCase(),s=$('#ea').value;const d=SKIDS.filter(x=>dfOk(x.date)&&(!s||skidStatus(x)===s)&&(!t||Object.values(x).join(' ').toLowerCase().includes(t)));
   $('#el').innerHTML=`<div class="scroll"><table><tr><th>Skid No</th><th>Date</th><th>Sale Order</th><th>Vendor</th><th>Variant</th><th>Shape</th><th>Job Name</th><th>Job Spec</th><th>Component</th><th>Net kg</th><th>Nos</th><th>Balance Nos</th><th>Status</th><th>Actions</th></tr>
   ${d.map(x=>{const ss=x.L*x.B*x.W*7.85/1e6;return `<tr><td>${x.no}</td><td>${x.date}</td><td>${x.so||'<span class="tag">stock</span>'}</td><td>${esc(x.vendor)}</td><td>${esc(x.variant)}</td><td>${x.shape}</td><td>${esc(x.job)}</td><td>${esc(x.spec)}</td><td>${x.comp}</td><td>${x.net}</td><td>${Math.round(x.net/ss)}</td><td>${Math.round(skidLeft(x))}</td>
   <td><span class="tag ${skidStatus(x)==='Instock'?'ok':skidStatus(x)==='WIP'?'warn':''}">${skidStatus(x)}</span></td><td>${ib('eye','View',`data-e="${x.no}"`)}${ib('edit','Edit',`data-ed="${x.no}"`)}${ib('trash','Delete',`data-del="${x.no}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown</div>`;
@@ -157,7 +169,7 @@ VIEWS.inward=()=>{
   document.querySelectorAll('[data-ed]').forEach(a=>a.onclick=()=>skidForm(SKIDS.find(x=>x.no===a.dataset.ed)));
   document.querySelectorAll('[data-e]').forEach(a=>a.onclick=()=>skidForm(SKIDS.find(x=>x.no===a.dataset.e)));
 };
- load();$('#eg').onclick=load;$('#es').oninput=load;$('#ea').onchange=load;$('#en').onclick=()=>skidForm(null)};
+ load();$('#eg').onclick=load;$('#es').oninput=load;$('#ea').onchange=load;dfBind(load);$('#en').onclick=()=>skidForm(null)};
 
 /* ---------------- Inward entry (= New employee layout) ---------------- */
 function skidForm(e,stock){const isNew=!e;stock=stock??(e?!e.so:false);
@@ -210,15 +222,15 @@ const slitIssue=(r,k)=>{if(!k||/^INSTOCK/i.test(r.skid))return '';const c=(k.com
  const bad=[['BODY','body','bwt'],['LID','lid','lwt'],['BOTTOM','bottom','btwt']].filter(([n,f,w])=>!c.includes(n)&&(+r[f]>0||+r[w]>0)).map(x=>x[0]);return bad.length?'Skid carries '+c+' but has '+bad.join(' and ')+' entered - correct the entry (or the skid components in Inward)':''};
 VIEWS.slitting=()=>{
  $('#main').innerHTML=`<div class="card"><h2>Slitting entries</h2><div class="row noprint"><label>Search<input id="es" placeholder="Skid no, vendor, job"></label>
- <label>Month<select id="em"><option value="">All</option><option>NOV 2026</option><option>JUL 2026</option></select></label>
+ ${monthFilter(SLITS,'')}
  <label>Show<select id="ef"><option value="">All entries</option><option value="bad">Needs correction</option></select></label>
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New slitting')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
- const load=()=>{const t=$('#es').value.toLowerCase();const nb=SLITS.filter(r=>slitIssue(r,SKIDS.find(x=>x.no===r.skid))).length;const d=SLITS.map(r=>({r,k:SKIDS.find(x=>x.no===r.skid)})).filter(({r,k})=>(!t||(r.skid+k.vendor+k.job).toLowerCase().includes(t))&&($('#ef').value!=='bad'||slitIssue(r,k)));
+ const load=()=>{const t=$('#es').value.toLowerCase();const nb=SLITS.filter(r=>slitIssue(r,SKIDS.find(x=>x.no===r.skid))).length;const d=SLITS.map(r=>({r,k:SKIDS.find(x=>x.no===r.skid)})).filter(({r,k})=>dfOk(r.date)&&(!t||(r.skid+k.vendor+k.job).toLowerCase().includes(t))&&($('#ef').value!=='bad'||slitIssue(r,k)));
   $('#el').innerHTML=(nb?`<div class="msg err" style="margin-bottom:8px">${nb} slitting entr${nb>1?'ies need':'y needs'} correction (a number is entered for a component the skid does not carry, or the skid has no components in Inward). Choose "Needs correction" in Show to list them.</div>`:'')+`<div class="scroll"><table><tr><th>Date</th><th>Skid No</th><th>Vendor</th><th>Job Name</th><th>Job Spec</th><th>Slitting count</th><th>Body</th><th>Lid</th><th>Bottom</th><th>Expected production</th><th>Variance kg</th><th>Skid status</th><th>Check</th><th>Actions</th></tr>
   ${d.map(({r,k})=>{const c=slitCalc(r,k);const bi=slitIssue(r,k);return `<tr><td>${r.date}</td><td>${r.skid}</td><td>${esc(k.vendor)}</td><td>${esc(k.job)}</td><td>${esc(k.spec)}</td><td>${r.count}</td><td>${r.body}</td><td>${r.lid}</td><td>${r.bottom}</td><td><b>${c.exp.toLocaleString()}</b></td><td>${c.variance.toFixed(1)}</td><td><span class="tag ${skidStatus(k)==='WIP'?'warn':skidStatus(k)==='Used'?'':'ok'}">${skidStatus(k)}</span></td><td>${bi?`<span class="tag warn" title="${esc(bi)}">Correct</span>`:''}</td><td>${ib('eye','View',`data-e="${r.id}"`)}${ib('edit','Edit',`data-ed="${r.id}"`)}${ib('trash','Delete',`data-del="${r.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown</div>`;
   bindDel(SLITS,'id','Slitting entry',x=>x.skid+' on '+x.date,()=>VIEWS.slitting());
   document.querySelectorAll('[data-e],[data-ed]').forEach(a=>a.onclick=()=>slitForm(SLITS.find(x=>x.id==(a.dataset.e||a.dataset.ed))))};
- load();$('#eg').onclick=load;$('#es').oninput=load;$('#ef').onchange=load;$('#en').onclick=()=>slitForm(null)};
+ load();$('#eg').onclick=load;$('#es').oninput=load;$('#ef').onchange=load;dfBind(load);$('#en').onclick=()=>slitForm(null)};
 // same formulas as the SLITTING sheet
 function slitCalc(r,k){const c=(k.comp||'').toUpperCase();const sl={body:r.body*r.count,lid:r.lid*r.count,bottom:r.bottom*r.count};
  const inSkid=['body','lid','bottom'].filter(n=>c.includes(n.toUpperCase()));const exp=inSkid.length?Math.min(...inSkid.map(n=>sl[n])):0;
@@ -272,14 +284,14 @@ const expMP=r=>{const m=mmGet(r.job,r.comp);return m&&m[1]&&r.actual&&r.hrs?Math
 let PV='CAN';
 VIEWS.production=()=>{
  $('#main').innerHTML=`<div class="card"><h2>Production entries</h2><div class="row noprint"><label>View<select id="pvw"><option value="CAN" ${PV==='CAN'?'selected':''}>CAN</option><option value="COMP" ${PV==='COMP'?'selected':''}>Components</option></select></label>
- <label>Date<input type="date" id="pd"></label><label>Search<input id="es" placeholder="Job, vendor, job ID"></label><button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New production')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
+ ${monthFilter(PROD,'',false)}<label>Date<input type="date" id="pd"></label><label>Search<input id="es" placeholder="Job, vendor, job ID"></label><button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New production')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
  const load=()=>{const t=$('#es').value.toLowerCase(),d0=$('#pd').value,v=$('#pvw').value;PV=v;
-  const d=PROD.filter(r=>(v==='CAN'?r.comp==='CAN':r.comp!=='CAN')&&(!d0||r.date===d0)&&(!t||(r.vendor+r.job+r.spec+jobId(r.colour,r.variant,r.shape,r.vendor,r.job,r.spec)).toLowerCase().includes(t)));
+  const d=PROD.filter(r=>(v==='CAN'?r.comp==='CAN':r.comp!=='CAN')&&dfOk(r.date)&&(!d0||r.date===d0)&&(!t||(r.vendor+r.job+r.spec+jobId(r.colour,r.variant,r.shape,r.vendor,r.job,r.spec)).toLowerCase().includes(t)));
   $('#el').innerHTML=`<div class="scroll"><table><tr><th>Date</th><th>Job ID</th><th>Vendor</th><th>Job Name</th><th>Job Spec</th><th>Component</th><th>Actual production</th><th>Man power</th><th>Hours</th><th>Expected MP</th><th>Efficiency</th><th>FG</th><th>SFG</th><th>Dispatch</th><th>Scrap</th><th>Actions</th></tr>
   ${d.map(r=>{const id=jobId(r.colour,r.variant,r.shape,r.vendor,r.job,r.spec),em=expMP(r),ef=r.mp?em/r.mp:0;return `<tr><td>${r.date}</td><td>${id}</td><td>${esc(r.vendor)}</td><td>${esc(r.job)}</td><td>${esc(r.spec)}</td><td>${r.comp}</td><td><b>${(+r.actual).toLocaleString()}</b></td><td>${r.mp}</td><td>${r.hrs}</td><td>${em||''}</td><td>${em?`<span class="tag ${ef>=1?'ok':ef>=.8?'warn':'bad'}">${(ef*100).toFixed(0)}%</span>`:''}</td><td>${r.fg||''}</td><td>${r.sfg||''}</td><td>${dispatched(id)||''}</td><td>${r.scrap||''}</td><td>${ib('eye','View',`data-e="${r.id}"`)}${ib('edit','Edit',`data-ed="${r.id}"`)}${ib('trash','Delete',`data-del="${r.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown · Expected MP = (matrix MP ÷ matrix target) × actual × (8 ÷ hours)</div>`;
   bindDel(PROD,'id','Production entry',x=>x.job+' '+x.comp+' on '+x.date,()=>VIEWS.production());
   document.querySelectorAll('[data-e],[data-ed]').forEach(a=>a.onclick=()=>prodForm(PROD.find(x=>x.id==(a.dataset.e||a.dataset.ed))))};
- load();$('#eg').onclick=load;$('#es').oninput=load;$('#pd').onchange=load;$('#pvw').onchange=load;$('#en').onclick=()=>prodForm(null)};
+ load();$('#eg').onclick=load;$('#es').oninput=load;$('#pd').onchange=load;dfBind(load);$('#pvw').onchange=load;$('#en').onclick=()=>prodForm(null)};
 function prodForm(e){const isNew=!e;
  $('#ttl').innerHTML=I('dashboard')+' '+(isNew?'New Production':'Edit Production');
  const jobs=[];DB_JOBS.forEach(k=>{const id=jobId(k.colour,k.variant,k.shape,k.vendor,k.job,k.spec);if(!jobs.find(j=>j.id===id))jobs.push({id,colour:k.colour,variant:k.variant,shape:k.shape,vendor:k.vendor,job:k.job,spec:k.spec})});if(e&&!jobs.find(j=>j.id===jobId(e.colour,e.variant,e.shape,e.vendor,e.job,e.spec)))jobs.push({id:jobId(e.colour,e.variant,e.shape,e.vendor,e.job,e.spec),colour:e.colour,variant:e.variant,shape:e.shape,vendor:e.vendor,job:e.job,spec:e.spec});
@@ -338,17 +350,17 @@ VIEWS.outward=()=>{
  const mon=OUT.filter(o=>o.date.slice(0,7)==='2026-11'),bad=OUT.filter(o=>!owCheck(o).ok);
  $('#main').innerHTML=`<div class="kpi"><div><b>${mon.length}</b>Entries (Nov 2026)</div><div><b>${mon.reduce((a,o)=>a+(+o.qty||0),0).toLocaleString()}</b>Dispatched Nos (Nov 2026)</div><div><b>${mon.reduce((a,o)=>a+(+o.boxes||0),0).toLocaleString()}</b>Boxes (Nov 2026)</div><div><b>${bad.length}</b>Box check mismatches</div></div>
  <div class="card"><h2>Outward (dispatch)</h2><div class="row noprint"><label>Search<input id="es" placeholder="Sale Order, DC, invoice, vendor, job, vehicle"></label>
- <label>Month<select id="em"><option value="">All</option><option value="2026-11" selected>NOV 2026</option><option value="2026-07">JUL 2026</option></select></label>
+ ${monthFilter(OUT,'cur')}
  <label>Box check<select id="eb"><option value="">All</option><option value="ok">Matches</option><option value="bad">Mismatch</option></select></label>
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New dispatch')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
  const load=()=>{const t=$('#es').value.toLowerCase(),m=$('#em').value,b=$('#eb').value;
-  const d=OUT.filter(o=>(!m||o.date.slice(0,7)===m)&&(!b||(b==='ok')===owCheck(o).ok)&&(!t||Object.values(o).join(' ').toLowerCase().includes(t)));
+  const d=OUT.filter(o=>dfOk(o.date)&&(!b||(b==='ok')===owCheck(o).ok)&&(!t||Object.values(o).join(' ').toLowerCase().includes(t)));
   $('#el').innerHTML=`<div class="scroll"><table><tr><th>Date</th><th>DC No</th><th>Invoice</th><th>Sale Order</th><th>Vendor</th><th>Variant</th><th>Job ID</th><th>Job Name</th><th>Job Spec</th><th>Boxes</th><th>Packing</th><th>Dispatch Nos</th><th>Box check</th><th>Vehicle</th><th>Actions</th></tr>
   ${d.map(o=>{const c=owCheck(o);return `<tr><td>${o.date}</td><td>${esc(o.dc)}</td><td>${esc(o.invoice)}</td><td>${o.so||'<span class="tag">stock</span>'}</td><td>${esc(o.vendor)}</td><td>${esc(o.variant)}</td><td>${o.jid}</td><td>${esc(o.job)}</td><td>${esc(o.spec)}</td><td>${o.boxes}</td><td>${o.boxes}x${o.perbox}</td><td><b>${(+o.qty).toLocaleString()}</b></td>
   <td>${c.ok?'<span class="tag ok">OK</span>':`<span class="tag bad">${c.diff>0?'+':''}${c.diff.toLocaleString()}</span>`}</td><td>${esc(o.vehicle)}</td><td>${ib('eye','View',`data-e="${o.id}"`)}${ib('edit','Edit',`data-ed="${o.id}"`)}${ib('trash','Delete',`data-del="${o.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown · Box check = Boxes × Qty per box compared with the dispatch quantity (should match)</div>`;
   bindDel(OUT,'id','Outward entry',x=>(x.job||'')+' on '+x.date,()=>VIEWS.outward());
   document.querySelectorAll('[data-e],[data-ed]').forEach(a=>a.onclick=()=>outForm(OUT.find(x=>x.id==(a.dataset.e||a.dataset.ed))))};
- load();$('#eg').onclick=load;$('#es').oninput=load;$('#em').onchange=load;$('#eb').onchange=load;$('#en').onclick=()=>outForm(null)};
+ load();$('#eg').onclick=load;$('#es').oninput=load;dfBind(load);$('#eb').onchange=load;$('#en').onclick=()=>outForm(null)};
 function outForm(e,stock){const isNew=!e;stock=stock??(e?!e.so:false);
  $('#ttl').innerHTML=I('open')+' '+(isNew?'New Dispatch':'Edit Dispatch');
  const v=k=>esc(e?.[k]??'');
@@ -416,14 +428,14 @@ VIEWS.scrap=()=>{
  const mon=SCRAP.filter(r=>r.date.slice(0,7)==='2026-11'),kg=mon.reduce((a,r)=>a+scrapKg(r),0),cn=mon.reduce((a,r)=>{const c=scrapCnt(r);return {b:a.b+c.body,l:a.l+c.lid,t:a.t+c.bottom}},{b:0,l:0,t:0});
  $('#main').innerHTML=`<div class="kpi"><div><b>${mon.length}</b>Entries (Nov 2026)</div><div><b>${kg.toFixed(1)}</b>Scrap kg (Nov 2026)</div><div><b>${cn.b.toLocaleString()}</b>Body Nos</div><div><b>${cn.l.toLocaleString()}</b>Lid Nos</div><div><b>${cn.t.toLocaleString()}</b>Bottom Nos</div></div>
  <div class="card"><h2>Scrap entries</h2><div class="row noprint"><label>Search<input id="es" placeholder="Vendor, job, job ID"></label>
- <label>Month<select id="em"><option value="">All</option><option value="2026-11" selected>NOV 2026</option><option value="2026-07">JUL 2026</option></select></label>
+ ${monthFilter(SCRAP,'cur')}
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New scrap')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
- const load=()=>{const t=$('#es').value.toLowerCase(),m=$('#em').value;const d=SCRAP.filter(r=>(!m||r.date.slice(0,7)===m)&&(!t||Object.values(r).join(' ').toLowerCase().includes(t)));
+ const load=()=>{const t=$('#es').value.toLowerCase(),m=$('#em').value;const d=SCRAP.filter(r=>dfOk(r.date)&&(!t||Object.values(r).join(' ').toLowerCase().includes(t)));
   $('#el').innerHTML=`<div class="scroll"><table><tr><th rowspan=2>Date</th><th rowspan=2>Job ID</th><th rowspan=2>Vendor</th><th rowspan=2>Job Name</th><th rowspan=2>Job Spec</th><th colspan=5>Scrap kg</th><th colspan=3>Component count (auto)</th><th rowspan=2>Actions</th></tr><tr><th>Body</th><th>Lid</th><th>Bottom</th><th>Body+Bottom</th><th>Total</th><th>Body</th><th>Lid</th><th>Bottom</th></tr>
   ${d.map(r=>{const c=scrapCnt(r);return `<tr><td>${r.date}</td><td>${r.jid}</td><td>${esc(r.vendor)}</td><td>${esc(r.job)}</td><td>${esc(r.spec)}</td><td>${r.kb||''}</td><td>${r.kl||''}</td><td>${r.kbt||''}</td><td>${r.kbb||''}</td><td><b>${scrapKg(r).toFixed(2)}</b></td><td>${c.body||''}</td><td>${c.lid||''}</td><td>${c.bottom||''}</td><td>${ib('eye','View',`data-e="${r.id}"`)}${ib('edit','Edit',`data-ed="${r.id}"`)}${ib('trash','Delete',`data-del="${r.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown · Count = scrap kg ÷ single component weight (Body+Bottom kg is split using its own weight)</div>`;
   bindDel(SCRAP,'id','Scrap entry',x=>(x.job||'')+' on '+x.date,()=>VIEWS.scrap());
   document.querySelectorAll('[data-e],[data-ed]').forEach(a=>a.onclick=()=>scrapForm(SCRAP.find(x=>x.id==(a.dataset.e||a.dataset.ed))))};
- load();$('#eg').onclick=load;$('#es').oninput=load;$('#em').onchange=load;$('#en').onclick=()=>scrapForm(null)};
+ load();$('#eg').onclick=load;$('#es').oninput=load;dfBind(load);$('#en').onclick=()=>scrapForm(null)};
 function scrapForm(e,stock){const isNew=!e;stock=stock??(e?!e.so:false);
  $('#ttl').innerHTML=I('open')+' '+(isNew?'New Scrap':'Edit Scrap');const v=k=>esc(e?.[k]||'');
  const soNos=[...new Set(MOCK.so.map(r=>r.so))];const soOpts=soNos.map(n=>`<option ${e&&e.so===n?'selected':''}>${n}</option>`).join('');
@@ -571,15 +583,15 @@ VIEWS.carton=()=>{
  <div class="card"><div class="row noprint" style="margin-bottom:10px"><div class="seg"><button class="${CTAB==='carton'?'on':''}" id="tc">CARTON</button><button class="${CTAB==='alum'?'on':''}" id="ta">ALUM &amp; TAPE</button></div></div>
  <h2>${CTAB==='carton'?'Carton entries':'Alum &amp; Tape entries'}</h2><div class="row noprint"><label>Search<input id="es" placeholder="${CTAB==='carton'?'Carton name, variation':'Item'}"></label>
  <label>Type<select id="et"><option value="">All</option><option>PURCHASE</option><option>ISSUED</option></select></label>
- <label>Month<select id="em"><option value="">All</option><option value="2026-11" selected>NOV 2026</option></select></label>
+ ${monthFilter(ledAll(),'cur')}
  <button class="b l" id="eg">${bt('search','Search')}</button><button class="b l" id="ex">${bt('dl','Export list')}</button><button class="b g" id="en">${bt('plus','New entry')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
  $('#tc').onclick=()=>{CTAB='carton';VIEWS.carton()};$('#ta').onclick=()=>{CTAB='alum';VIEWS.carton()};
- const load=()=>{const t=$('#es').value.toLowerCase(),ty=$('#et').value,m=$('#em').value;const d=ledAll().filter(x=>(!ty||x.type===ty)&&(!m||x.date.slice(0,7)===m)&&(!t||(x.item+' '+(x.variation||'')).toLowerCase().includes(t))).sort((a,b)=>b.date.localeCompare(a.date));
+ const load=()=>{const t=$('#es').value.toLowerCase(),ty=$('#et').value,m=$('#em').value;const d=ledAll().filter(x=>(!ty||x.type===ty)&&dfOk(x.date)&&(!t||(x.item+' '+(x.variation||'')).toLowerCase().includes(t))).sort((a,b)=>b.date.localeCompare(a.date));
   $('#el').innerHTML=`<div class="scroll"><table><tr><th>Date</th>${CTAB==='carton'?'<th>Carton variation</th>':''}<th>${CTAB==='carton'?'Carton name':'Item'}</th><th>Type</th><th>Quantity</th><th>Balance now</th><th>Remarks</th><th>Actions</th></tr>
   ${d.map(x=>{const b=ledBal(x.item,ledAll());return `<tr><td>${x.date}</td>${CTAB==='carton'?`<td>${esc(x.variation||'')}</td>`:''}<td>${esc(x.item)}</td><td><span class="tag ${x.type==='PURCHASE'?'ok':'warn'}">${x.type}</span></td><td><b>${(+x.qty).toLocaleString()}</b></td><td>${b<0?`<span class="tag bad">${b.toLocaleString()}</span>`:b.toLocaleString()}</td><td>${esc(x.rem||'')}</td><td>${x.auto?'<span class="tag">auto</span>':ib('edit','Edit',`data-ed="${x.id}"`)}${ib('trash','Delete',`data-del="${x.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown · Balance = Purchased − Issued${CTAB==='carton'?' · Cartons used in Production entries are added to Issued automatically':''}</div>`;
   bindDel(CTAB==='carton'?CLED:ALED,'id','Entry',x=>x.item+' on '+x.date,()=>VIEWS.carton());
   document.querySelectorAll('[data-ed]').forEach(a=>a.onclick=()=>cartonForm((CTAB==='carton'?CLED:ALED).find(x=>x.id==a.dataset.ed)))};
- load();$('#eg').onclick=load;$('#es').oninput=load;$('#et').onchange=load;$('#em').onchange=load;$('#en').onclick=()=>cartonForm(null)};
+ load();$('#eg').onclick=load;$('#es').oninput=load;$('#et').onchange=load;dfBind(load);$('#en').onclick=()=>cartonForm(null)};
 function cartonForm(e){const isNew=!e,car=CTAB==='carton';$('#ttl').innerHTML=I('open')+' '+(isNew?'New ':'Edit ')+(car?'Carton entry':'Alum & Tape entry');
  const v=k=>esc(e?.[k]??'');
  $('#main').innerHTML=`<div class="row noprint" style="margin-bottom:12px"><button class="b l" id="bk">${bt('x','Back')}</button></div>
