@@ -245,8 +245,13 @@ function slitForm(e){const isNew=!e;
   if(k){f('#st',skidStatus(k));f('#bal',Math.round(skidLeft(k)-(e&&e.skid===k.no?-e.count:0)));f('#ve',k.vendor);f('#va',k.variant);f('#col',k.colour);f('#sh',k.shape);f('#jb',k.job);f('#sp',k.spec);f('#cm',k.comp);f('#jid',jobId(k.colour,k.variant,k.shape,k.vendor,k.job,k.spec));f('#gw',k.gross);f('#nw',k.net);f('#sz',k.L+' × '+k.B+' × '+k.W);f('#ss',sheetWt(k).toFixed(4));f('#wn',skidNos(k).toFixed(1));f('#rw',k.net);
    const cu=(k.comp||'').toUpperCase();[['BODY','#lb','#wb'],['LID','#ll','#wl'],['BOTTOM','#lbt','#wbt']].forEach(([n,a1,a2])=>{const on=cu.includes(n);[a1,a2].forEach(i=>{$(i).disabled=!on;if(!on)$(i).value=0})});
    if(!e){$('#dfl')&&($('#dfl').textContent='');
-    {const last={};SLITS.filter(t=>t.skid!==k.no).forEach(t=>{const o=SKIDS.find(x=>x.no===t.skid);if(o&&o.job===k.job&&o.spec===k.spec&&+o.L===+k.L&&+o.B===+k.B&&+o.W===+k.W&&o.comp===k.comp&&(!last[o.comp]||t.date>last[o.comp].date))last[o.comp]=t});
-     const t=last[k.comp];if(t){let used=false;[['BODY','#lb','body'],['LID','#ll','lid'],['BOTTOM','#lbt','bottom']].forEach(([n,i,f])=>{if((k.comp||'').toUpperCase().includes(n)&&!$(i).dataset.t&&t[f]){$(i).value=t[f];used=true}});if(used&&$('#dfl'))$('#dfl').textContent='Pieces per sheet taken from the last slitting of this job with the same sheet size ('+t.date+'). Change them if needed.'}}
+    ['#lb','#ll','#lbt'].forEach(i=>{if(!$(i).dataset.t&&!$(i).disabled)$(i).value=''});
+    if(/^(BUSH|AJ)\b/i.test(String(k.job||'').trim())){const isAJ=/^AJ\b/i.test(String(k.job).trim()),same=(o)=>+o.L===+k.L&&+o.B===+k.B&&+o.W===+k.W,notes=[];
+     [['BODY','#lb','body'],['LID','#ll','lid'],['BOTTOM','#lbt','bottom']].forEach(([n,i,f])=>{if(!(k.comp||'').toUpperCase().includes(n)||$(i).dataset.t)return;
+      const c=SLITS.filter(t=>t.skid!==k.no&&+t[f]>0).map(t=>({t,o:SKIDS.find(x=>x.no===t.skid)})).filter(x=>x.o&&x.o.job===k.job&&(x.o.comp||'').toUpperCase().includes(n)).sort((p,q)=>String(q.t.date).localeCompare(String(p.t.date)));
+      const m=c.find(x=>same(x.o))||c[0];if(m){$(i).value=m.t[f];notes.push(n.toLowerCase()+' '+m.t[f]+(same(m.o)||isAJ?'':' (other sheet size - check)'))}});
+     if(notes.length&&$('#dfl'))$('#dfl').textContent='Pieces per sheet filled from earlier slitting of this job: '+notes.join(', ')+'. You can change them.'}
+    else if($('#dfl'))$('#dfl').textContent='Enter the pieces per sheet for the components in this skid.'
    }
    const c=slitCalc(rec(),k);f('#sb',c.sl.body);f('#sl',c.sl.lid);f('#sbt',c.sl.bottom);f('#ex',c.exp);f('#tw',c.tin.toFixed(3));f('#bf',c.bif.toFixed(2));f('#vr',c.variance.toFixed(2))}};
  ['#lb','#ll','#lbt'].forEach(i=>$(i).addEventListener('input',ev=>{if(ev.isTrusted)ev.target.dataset.t=1}));['#sk','#cnt','#lb','#ll','#lbt','#wb','#wl','#wbt'].forEach(i=>{$(i).oninput=$(i).onchange=upd});upd();
