@@ -401,6 +401,7 @@
 #usersModal .ipsec-card-head{ position:sticky; top:0; z-index:2; padding:6px 0 10px; margin-bottom:4px; background:linear-gradient(180deg,#14304a 70%,rgba(20,48,74,0)); }
 #usersModal .ipsec-card-head h3{ font-size:22px; }
 #usersModal.show{display:flex}
+#pwModal.show{display:flex;z-index:120}
 .u-bar{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 10px;align-items:center}
 .u-bar input,.u-bar select,.u-add input,.u-add select,.u-tbl input:not([type=checkbox]),.u-tbl select{padding:9px 11px;border-radius:8px;border:1px solid rgba(216,166,55,.4);background:rgba(6,16,27,.6);color:#eef3f8;font-size:13px;outline:none;font-family:inherit}
 .u-bar .grow{flex:1;min-width:200px}
@@ -501,6 +502,15 @@
   <div class="ipsec-sub">One login for everyone. Choose a role for each app: a person sees a tile only when they have a role in that app. Quality uses the PMS roles.</div>
   <div id="usersBody" style="margin-top:6px"></div>
 </div></div>
+<div class="ipsec-overlay" id="pwModal"><div class="ipsec-card" style="max-width:420px">
+  <div class="ipsec-card-head"><h3>🔑 Set your own password</h3></div>
+  <div class="ipsec-sub">This is your first login with a temporary password. Choose a new password to continue (minimum 8 characters).</div>
+  <div style="display:grid;gap:8px;margin-top:10px">
+   <input id="pwNew" type="password" placeholder="New password" autocomplete="new-password">
+   <input id="pwNew2" type="password" placeholder="Confirm new password" autocomplete="new-password">
+   <div id="pwErr" class="login-error"></div>
+   <div style="display:flex;gap:8px"><button class="btn-primary" id="pwOk">Save password</button><button class="plinks-back" id="pwOut">Log out</button></div>
+  </div></div></div>
 <div id="toast" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#06101b;color:#e8bf5e;padding:10px 18px;border-radius:10px;border:1px solid #d9a637;display:none;z-index:99"></div>
 <script>
 const HUB_NAME='HUB';
@@ -516,14 +526,14 @@ const PORTALS=[
  {id:'pms',title:'PMS',subtitle:'Production Management System',url:BASE+'PMS/',role:'pms'},
  {id:'payroll',title:'CP PAYROLL',subtitle:'Attendance and payroll',url:BASE+'PAYROLL/',role:'payroll'},
  {id:'quality',title:'QUALITY',subtitle:'Job Master and Job Calculator',url:BASE+'Quality/',role:'quality'},
- {id:'tincost',title:'REALTIME TIN COST',subtitle:'Cost per tin - live',url:'',role:'costing'}];
+ {id:'tincost',title:'REALTIME TIN COST',subtitle:'Cost per tin - live',url:BASE+'COST/',role:'cost'}];
 let ME=null,LINKS=[];
 const role=r=>ME&&ME.roles&&ME.roles[r];
 const perm=(m,p)=>ME&&ME.permissions&&(ME.permissions[m]||[]).includes(p);
 const isAdmin=()=>role('core')==='admin';
 const RN={admin:'Administrator',manager:'Manager',hr:'HR',scm:'SCM',production:'Production',quality:'Quality',data_entry:'Data Entry',accounts:'Accounts'};
-const AN={pms:'PMS',payroll:'Payroll',costing:'Cost per Tin'};
-function roleLabel(){if(!ME)return '';const r=ME.roles||{};const p=['pms','payroll','costing'].filter(m=>r[m]).map(m=>AN[m]+': '+(RN[r[m]]||r[m]));if(isAdmin())return p.length?'Administrator · '+p.join(' · '):'Administrator';return p.join(' · ')||((ME.department&&ME.department.name)||'')}
+const AN={pms:'PMS',payroll:'Payroll',cost:'Cost per Tin'};
+function roleLabel(){if(!ME)return '';const r=ME.roles||{};const p=['pms','payroll','cost'].filter(m=>r[m]).map(m=>AN[m]+': '+(RN[r[m]]||r[m]));if(isAdmin())return p.length?'Administrator · '+p.join(' · '):'Administrator';return p.join(' · ')||((ME.department&&ME.department.name)||'')}
 const canSee=p=>{if(!ME)return false;if(isAdmin())return true;if(p.role==='quality')return ['quality','manager'].includes(role('pms'))||!!role('quality');return !!role(p.role)};
 const linkOf=p=>{const o=LINKS.find(l=>l.code===p.id);return {title:o?.title||p.title,url:(o&&o.url)||p.url,active:o?o.active!==false:true}};
 function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast._t);toast._t=setTimeout(()=>t.style.display='none',2600)}
@@ -575,7 +585,17 @@ async function afterLogin(withEntry){
  const {data,error}=await C('me');
  if(error){await sb.auth.signOut();show('login');const e=$('#loginError');e.textContent=cleanErr(error.message);e.classList.add('show');return}
  ME=data;await loadLinks();fillHome();
+ if(ME.must_change_password){await forcePw()}
  if(withEntry)runEntry(()=>show('home'));else show('home')}
+function forcePw(){return new Promise(res=>{
+ const m=$('#pwModal'),er=$('#pwErr');m.classList.add('show');$('#pwNew').value='';$('#pwNew2').value='';er.classList.remove('show');
+ $('#pwOut').onclick=async()=>{m.classList.remove('show');await sb.auth.signOut();ME=null;show('login')};
+ $('#pwOk').onclick=async()=>{const a=$('#pwNew').value,b=$('#pwNew2').value;er.classList.remove('show');
+  const bad=a.length<8?'Use at least 8 characters.':a!==b?'The two passwords do not match.':'';
+  if(bad){er.textContent=bad;er.classList.add('show');return}
+  const {error}=await sb.auth.updateUser({password:a});
+  if(error){er.textContent=error.message;er.classList.add('show');return}
+  const r=await C('me');if(r.data)ME=r.data;m.classList.remove('show');toast('Password changed');res()}})}
 $('#loginForm').onsubmit=async ev=>{ev.preventDefault();const e=$('#loginError');e.classList.remove('show');
  const u=$('#uname').value.trim().split('@')[0].replace(/\s/g,'').toLowerCase();
  const {error}=await sb.auth.signInWithPassword({email:u+'@classicpack.com',password:$('#pwd').value});
@@ -609,7 +629,7 @@ $('#plinksClose').onclick=()=>$('#plinksModal').classList.remove('show');
 const APPS=[
  {m:'pms',label:'PMS / Quality',roles:[['scm','SCM'],['production','Production'],['quality','Quality'],['hr','HR & Admin'],['manager','Manager'],['admin','Administrator']]},
  {m:'payroll',label:'CP PAYROLL',roles:[['admin','Administrator'],['manager','Manager'],['hr','HR']]},
- {m:'costing',label:'COST PER TIN',roles:[['manager','Manager'],['admin','Administrator'],['hr','HR & Admin']]}];
+ {m:'cost',label:'COST PER TIN',roles:[['manager','Manager'],['admin','Administrator'],['accounts','Accounts']]}];
 function genPw(){const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';let s='';const r=new Uint32Array(10);crypto.getRandomValues(r);r.forEach(v=>s+=a[v%a.length]);return s}
 const invokeUser=async b=>{const {data,error}=await sb.functions.invoke('create-user',{body:b});if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(_){}throw new Error(m)}if(data&&data.error)throw new Error(data.error);return data};
 async function usersOpen(note){

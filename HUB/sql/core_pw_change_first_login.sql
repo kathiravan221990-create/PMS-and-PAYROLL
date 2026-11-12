@@ -1,0 +1,4 @@
+-- APPLIED 2026-11-12. First-login password change for the HUB.
+-- core.users.pw_changed; trigger on auth.users sets it true on self-service change, false on admin create/reset;
+-- core_api.me() returns must_change_password.
+-- (full SQL = migration core_pw_change_first_login in Supabase)
