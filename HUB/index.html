@@ -499,7 +499,7 @@
 </div></div>
 <div class="ipsec-overlay" id="usersModal"><div class="ipsec-card">
   <div class="ipsec-card-head"><h3>👥 Users &amp; Roles</h3><button class="plinks-back" id="usersClose">← Home</button></div>
-  <div class="ipsec-sub">One login for everyone. Choose a role for each app: a person sees a tile only when they have a role in that app. Quality uses the PMS roles.</div>
+  <div class="ipsec-sub">One login for everyone. Add people and manage names, departments and passwords here. Which app each person can open is set in Portal Links (open a portal, then Access).</div>
   <div id="usersBody" style="margin-top:6px"></div>
 </div></div>
 <div class="ipsec-overlay" id="pwModal"><div class="ipsec-card" style="max-width:420px">
@@ -617,12 +617,30 @@ $('#ipsecClose').onclick=()=>$('#ipsecModal').classList.remove('show');
 async function linksOpen(){
  await loadLinks();
  const rows=PORTALS.map(p=>{const o=linkOf(p);return {code:p.id,title:o.title,url:o.url,active:o.active}}).concat(LINKS.filter(l=>!PORTALS.some(p=>p.id===l.code)).map(l=>({code:l.code,title:l.title,url:l.url,active:l.active!==false})));
- $('#plinksList').innerHTML=rows.map((r,i)=>'<div class="plink-row"><b>'+esc(r.code.toUpperCase())+'</b><input id="pt'+i+'" value="'+esc(r.title)+'" placeholder="Name"><input id="pu'+i+'" value="'+esc(r.url)+'" placeholder="https://..."><label style="font-size:12px;color:#c9d2da"><input type="checkbox" id="pa'+i+'" '+(r.active?'checked':'')+'> Show tile</label><div class="plink-actions"><button class="btn-primary" data-s="'+i+'">Save</button></div></div>').join('')
+ $('#plinksList').innerHTML=rows.map((r,i)=>'<div class="plink-row"><b>'+esc(r.code.toUpperCase())+'</b><input id="pt'+i+'" value="'+esc(r.title)+'" placeholder="Name"><input id="pu'+i+'" value="'+esc(r.url)+'" placeholder="https://..."><label style="font-size:12px;color:#c9d2da"><input type="checkbox" id="pa'+i+'" '+(r.active?'checked':'')+'> Show tile</label><div class="plink-actions"><button class="btn-primary" data-s="'+i+'">Save</button>'+(APPOF[r.code]?' <button class="btn-primary" data-x="'+i+'">Access</button>':'')+'</div><div class="plink-acc" id="acc'+i+'" style="display:none"></div></div>').join('')
   +'<div class="plink-row"><b>ADD ANOTHER LINK</b><input id="nt" placeholder="Name"><input id="nu" placeholder="https://..."><div class="plink-actions"><button class="btn-primary" id="na">Add</button></div></div>';
  $('#plinksModal').classList.add('show');
  const save=async(code,title,url,active)=>{if(url&&!/^https:\/\//i.test(url))return toast('Link must start with https://');if(!url)return toast('Enter the link');const {error}=await C('portal_link_save',{p_code:code,p_title:title,p_url:url,p_active:active});if(error)return toast(cleanErr(error.message));toast('Saved');await loadLinks();buildTiles();linksOpen()};
  document.querySelectorAll('#plinksList [data-s]').forEach(b=>b.onclick=()=>{const i=+b.dataset.s;save(rows[i].code,$('#pt'+i).value.trim(),$('#pu'+i).value.trim(),$('#pa'+i).checked)});
+ document.querySelectorAll('#plinksList [data-x]').forEach(b=>b.onclick=()=>accessOpen(rows[+b.dataset.x].code,'acc'+b.dataset.x));
  $('#na').onclick=()=>{const t=$('#nt').value.trim(),u=$('#nu').value.trim();if(!t||!u)return toast('Enter name and link');save(t.toLowerCase().replace(/[^a-z0-9]+/g,'-'),t,u,true)}}
+const APPOF={pms:'pms',payroll:'payroll',tincost:'cost'};
+async function accessOpen(code,boxId){
+ const box=$('#'+boxId);if(box.style.display==='block'){box.style.display='none';return}
+ const app=APPS.find(a=>a.m===APPOF[code]);box.style.display='block';box.textContent='Loading…';
+ const {data,error}=await C('users_list');if(error){box.textContent=cleanErr(error.message);return}
+ const us=(data||[]).filter(u=>u.active!==false),login=u=>(u.email||'').split('@')[0];
+ const ropts=sel=>'<option value="">— no access —</option>'+app.roles.map(r=>'<option value="'+r[0]+'"'+(r[0]===sel?' selected':'')+'>'+esc(r[1])+'</option>').join('');
+ box.innerHTML='<div style="font-size:12px;color:#c9d2da;margin:4px 0 8px">Who can open <b>'+esc(app.label)+'</b>'+(code==='pms'?' (Quality uses these PMS roles)':'')+':</div>'
+  +us.map(u=>'<div class="plink-row" data-u="'+u.user_id+'" style="display:grid;grid-template-columns:110px 1fr 150px auto;align-items:center;margin-bottom:6px"><b>'+esc(login(u))+'</b><span>'+esc(u.full_name)+'</span><select class="ar">'+ropts((u.roles||{})[app.m]||'')+'</select><button class="btn-primary" disabled>Save</button></div>').join('');
+ box.querySelectorAll('[data-u]').forEach(row=>{const id=row.dataset.u,u=us.find(x=>x.user_id===id),sel=row.querySelector('select'),bt=row.querySelector('button');
+  sel.onchange=()=>{bt.disabled=sel.value===((u.roles||{})[app.m]||'')};
+  bt.onclick=async()=>{bt.disabled=true;try{
+   const was=(u.roles||{})[app.m]||'',code2=sel.value||was;const {error:e1}=await C('user_set_role',{p_user_id:id,p_module:app.m,p_role_code:code2,p_active:!!sel.value});if(e1)throw e1;
+   const next={...(u.roles||{})};if(sel.value)next[app.m]=sel.value;else delete next[app.m];
+   const keep=Object.keys(next).some(m=>m!=='core'&&next[m]==='admin'),wasAdmin=(u.roles||{}).core==='admin';
+   if(keep!==wasAdmin){const {error:e2}=await C('user_set_role',{p_user_id:id,p_module:'core',p_role_code:'admin',p_active:keep});if(e2)throw e2}
+   u.roles=next;toast('Saved '+login(u))}catch(e){bt.disabled=false;toast(cleanErr(e.message))}}})}
 $('#plinksClose').onclick=()=>$('#plinksModal').classList.remove('show');
 
 // ---------- Users & Roles ----------
@@ -642,11 +660,9 @@ async function usersOpen(note){
  const login=u=>(u.email||'').split('@')[0];
  box.innerHTML='<div id="uNote"></div><div class="u-bar"><input class="grow" id="uq" type="search" placeholder="Search name or User ID…"><select id="usf"><option value="">All status</option><option value="on">Active</option><option value="off">Disabled</option></select><button class="u-btn" id="uTg">+ Add person</button></div>'
  +'<div class="u-add" id="uAdd"><div><label>User ID</label><input id="nId" placeholder="e.g. ravi.k" autocomplete="off" autocapitalize="off"></div><div><label>Full name</label><input id="nName" placeholder="e.g. Ravi Kumar"></div><div><label>Department</label><select id="nDept">'+dopts(0)+'</select></div>'
- +APPS.map(a=>'<div><label>'+a.label+'</label><select id="nr_'+a.m+'">'+ropts(a,'')+'</select></div>').join('')
- +'<div><label>Temporary password</label><input id="nPw" value="'+genPw()+'" autocomplete="off"></div><div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><button class="u-btn ghost" id="nGen">New random password</button><button class="u-btn" id="nOk">Add person</button></div></div>'
- +'<div class="u-tw"><table class="u-tbl"><thead><tr><th>User ID</th><th>Full name</th><th>Department</th>'+APPS.map(a=>'<th>'+a.label+'</th>').join('')+'<th>Status</th><th>Actions</th></tr></thead><tbody>'
+  +'<div><label>Temporary password</label><input id="nPw" value="'+genPw()+'" autocomplete="off"></div><div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><button class="u-btn ghost" id="nGen">New random password</button><button class="u-btn" id="nOk">Add person</button></div></div>'
+ +'<div class="u-tw"><table class="u-tbl"><thead><tr><th>User ID</th><th>Full name</th><th>Department</th>'+'<th>Status</th><th>Actions</th></tr></thead><tbody>'
  +us.map(u=>'<tr data-u="'+u.user_id+'" data-s="'+esc((login(u)+' '+u.full_name).toLowerCase())+'" data-a="'+(u.active?'on':'off')+'"><td><b>'+esc(login(u))+'</b></td><td><input class="n" value="'+esc(u.full_name)+'"></td><td><select class="d">'+dopts(u.department_id)+'</select></td>'
-  +APPS.map(a=>'<td><select class="r" data-m="'+a.m+'">'+ropts(a,(u.roles||{})[a.m]||'')+'</select></td>').join('')
   +'<td><label style="cursor:pointer"><input type="checkbox" class="a"'+(u.active?' checked':'')+'> <span class="u-pill '+(u.active?'on':'off')+' st">'+(u.active?'Active':'Disabled')+'</span></label></td><td><button class="u-btn sm sv" disabled>Save</button> <button class="u-btn ghost sm rp">Reset password</button></td></tr>').join('')
  +'</tbody></table></div>';
  const show=(t,pw,err)=>{const n=$('#uNote');n.innerHTML='<div class="u-note'+(err?' err':'')+'"><span>'+esc(t)+(pw?' <code>'+esc(pw)+'</code>':'')+'</span><span style="display:flex;gap:8px">'+(pw?'<button class="u-btn sm" id="uCp">Copy</button>':'')+'<button class="u-btn ghost sm" id="uX">Dismiss</button></span></div>';$('#uX').onclick=()=>n.innerHTML='';if(pw)$('#uCp').onclick=()=>{try{navigator.clipboard.writeText(pw);$('#uCp').textContent='Copied'}catch(e){$('#uCp').textContent='Select and copy'}}};
@@ -655,24 +671,16 @@ async function usersOpen(note){
  $('#uq').oninput=flt;$('#usf').onchange=flt;
  $('#uTg').onclick=()=>{$('#uAdd').classList.toggle('open');$('#nId').focus()};$('#nGen').onclick=()=>$('#nPw').value=genPw();
  const hasAdmin=(roles)=>Object.keys(roles).some(m=>m!=='core'&&roles[m]==='admin');
- $('#nOk').onclick=async()=>{const id=$('#nId').value.trim().toLowerCase(),pw=$('#nPw').value,pick=APPS.map(a=>[a.m,$('#nr_'+a.m).value]).filter(x=>x[1]);
-  if(!pick.length)return show('Choose a role in at least one app.',null,true);
-  try{const first=pick[0];const r=await invokeUser({module:first[0],login_id:id,full_name:$('#nName').value,department_id:Number($('#nDept').value),role_code:first[1],password:pw});
-   const rest=pick.slice(1);for(const [m,rc] of rest){const {error}=await C('user_set_role',{p_user_id:r.user_id,p_module:m,p_role_code:rc,p_active:true});if(error)throw error}
-   if(pick.some(x=>x[1]==='admin')){await C('user_set_role',{p_user_id:r.user_id,p_module:'core',p_role_code:'admin',p_active:true})}
-   usersOpen({t:'Added '+id+'. Temporary password (shown once, give it privately):',pw})}catch(e){show(cleanErr(e.message),null,true)}};
- box.querySelectorAll('tr[data-u]').forEach(t=>{const id=t.dataset.u,u=us.find(x=>x.user_id===id),n=t.querySelector('.n'),d=t.querySelector('.d'),a=t.querySelector('.a'),st=t.querySelector('.st'),sv=t.querySelector('.sv'),rp=t.querySelector('.rp'),rs=[...t.querySelectorAll('.r')];
+ $('#nOk').onclick=async()=>{const id=$('#nId').value.trim().toLowerCase(),pw=$('#nPw').value;
+  try{await invokeUser({module:'none',login_id:id,full_name:$('#nName').value,department_id:Number($('#nDept').value),password:pw});
+   usersOpen({t:'Added '+id+'. Temporary password (shown once). Now open Portal Links to give access to the apps:',pw})}catch(e){show(cleanErr(e.message),null,true)}};
+ box.querySelectorAll('tr[data-u]').forEach(t=>{const id=t.dataset.u,u=us.find(x=>x.user_id===id),n=t.querySelector('.n'),d=t.querySelector('.d'),a=t.querySelector('.a'),st=t.querySelector('.st'),sv=t.querySelector('.sv'),rp=t.querySelector('.rp');
   const cur=m=>(u.roles||{})[m]||'';
-  const dirty=()=>{sv.disabled=!(n.value!==u.full_name||Number(d.value)!==u.department_id||a.checked!==u.active||rs.some(s=>s.value!==cur(s.dataset.m)))};
-  [n,d].forEach(x=>{x.oninput=x.onchange=dirty});rs.forEach(s=>s.onchange=dirty);
+  const dirty=()=>{sv.disabled=!(n.value!==u.full_name||Number(d.value)!==u.department_id||a.checked!==u.active)};
+  [n,d].forEach(x=>{x.oninput=x.onchange=dirty});
   a.onchange=()=>{st.className='u-pill '+(a.checked?'on':'off')+' st';st.textContent=a.checked?'Active':'Disabled';dirty()};
   sv.onclick=async()=>{sv.disabled=true;try{
     const {error:e1}=await C('user_update',{p_user_id:id,p_full_name:n.value,p_department_id:Number(d.value),p_active:a.checked});if(e1)throw e1;
-    const next={...(u.roles||{})};
-    for(const s of rs){const m=s.dataset.m,was=cur(m);if(s.value===was)continue;const code=s.value||was;
-      const {error}=await C('user_set_role',{p_user_id:id,p_module:m,p_role_code:code,p_active:!!s.value});if(error)throw error;if(s.value)next[m]=s.value;else delete next[m]}
-    const keep=hasAdmin(next),wasAdmin=(u.roles||{}).core==='admin';
-    if(keep!==wasAdmin){const {error}=await C('user_set_role',{p_user_id:id,p_module:'core',p_role_code:'admin',p_active:keep});if(error)throw error}
     usersOpen({t:'Saved changes for '+login(u)+'.'})}catch(e){sv.disabled=false;show(cleanErr(e.message),null,true)}};
   let arm=false;rp.onclick=async()=>{if(!arm){arm=true;rp.textContent='Click again to confirm';setTimeout(()=>{arm=false;rp.textContent='Reset password'},4000);return}const pw=genPw();try{await invokeUser({action:'reset_password',user_id:id,password:pw});show('New temporary password for '+login(u)+' (shown once):',pw)}catch(e){show(cleanErr(e.message),null,true)}arm=false;rp.textContent='Reset password'}})}
 $('#usersClose').onclick=()=>$('#usersModal').classList.remove('show');
