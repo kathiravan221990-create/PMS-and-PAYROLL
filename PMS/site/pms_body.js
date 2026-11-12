@@ -23,8 +23,8 @@ const C=(fn,a)=>track(sb.schema('core_api').rpc(fn,a||{}));
 const R=(fn,a)=>track(sb.schema('pms_api').rpc(fn,a||{}));
 const pcan=p=>(ME?.permissions?.pms||[]).includes(p);
 let TODAY=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
-const EDIT_DAYS=7;
-const SAMPLE_VIEWS=['masters','rman','rules','quality','jobcalc'];
+let EDIT_DAYS=7;let MXID={},MM_DIRTY=new Set();
+const SAMPLE_VIEWS=['rman','jobcalc'];
 let DB_JOBS=[],CI_ID={},AI_ID={};
 function cleanErr(m){m=String(m||'');const map={edit_window_closed:'This entry is older than '+EDIT_DAYS+' days. Only an Administrator or Manager can change it, or enter it with a back-date reason.',backdate_reason_required:'This date is older than '+EDIT_DAYS+' days. Type the reason for the back-dated entry.',skid_no_exists:'This skid number / name already exists.',skid_has_slitting:'This skid already has slitting entries. Delete those first.',man_power_required:'Enter the man power.',hours_required:'Enter the hours.',not_logged_in:'Please log in again.'};
  for(const k in map)if(m.includes(k))return map[k];if(m.includes('permission_denied'))return 'You do not have permission for this. ('+m+')';return m}
@@ -49,7 +49,14 @@ async function hydrate(){const {data:D,error}=await R('bootstrap');if(error){toa
  Object.keys(CARTON).forEach(k=>delete CARTON[k]);CI_ID={};D.carton_items.forEach(c=>{(CARTON[c.variation]=CARTON[c.variation]||[]).push(c.name);CI_ID[c.variation+'|'+c.name]=c.id});
  ATAPE=D.alum_items.map(a=>a.name);AI_ID={};D.alum_items.forEach(a=>AI_ID[a.name]=a.id);
  DB_JOBS=D.jobs;const V={},S={};D.jobs.forEach(j=>{(V[j.vendor]=V[j.vendor]||[]);if(!V[j.vendor].includes(j.variant))V[j.vendor].push(j.variant);((S[j.shape]=S[j.shape]||{})[j.job]=S[j.shape][j.job]||[]);if(!S[j.shape][j.job].includes(j.spec))S[j.shape][j.job].push(j.spec)});
- MOCK.vendors=V;MOCK.shapes=S;MOCK.colours=D.colours}
+ MOCK.vendors=V;MOCK.shapes=S;MOCK.colours=D.colours;
+ const [jm,mx,rl]=await Promise.all([R('job_master_list'),R('matrix_list'),R('rules_list')]);
+ if(jm.error)throw jm.error;
+ JM=(jm.data||[]).map(o=>({id:o.job_spec_id,shape:o.shape,job:String(o.job).trim(),spec:o.spec,lid:o.lid_type||'',ht:o.height,bw:o.body_w,bh:o.body_h,bt:o.body_t,lw:o.lid_w,lh:o.lid_h,lt:o.lid_t,tw:o.bot_w,th:o.bot_h,tt:o.bot_t,wb:o.wt_body,wl:o.wt_lid,wt:o.wt_bottom,bbt:o.body_base_t,bbw:o.body_base_wt,lbt:o.lid_base_t,lbw:o.lid_base_wt,tbt:o.bot_base_t,tbw:o.bot_base_wt,img:o.picture_name,draft:!!o.is_draft}));
+ Object.keys(MM).forEach(k=>delete MM[k]);Object.keys(MMC).forEach(k=>delete MMC[k]);MXID={};
+ (mx.data||[]).forEach(m=>{const k=String(m.job).trim().toUpperCase();MXID[k]=m.job_id;if(m.target)MM[k]=[+m.target,+(m.can_mp||m.can_total||0)];const c={};if(m.body_mp!=null)c.BODY=+m.body_mp;if(m.lid_mp!=null)c.LID=+m.lid_mp;if(m.bottom_mp!=null)c.BOTTOM=+m.bottom_mp;if(Object.keys(c).length)MMC[k]=c});
+ if(rl.data){(rl.data.current||[]).forEach(c=>{const r=RULES.find(x=>x.k===c.key);if(r)r.v=c.value});THRESH=+rv('skid_wip_used_threshold')||50;EDIT_DAYS=+rv('edit_window_days')||7;
+  RHIST.length=0;(rl.data.history||[]).forEach(h=>{const r=RULES.find(x=>x.k===h.key);RHIST.push({on:String(h.at||'').slice(0,10),n:r?r.n:h.key,o:'',v:(h.value&&typeof h.value==='object')?JSON.stringify(h.value):h.value,f:h.from,why:h.why||'',by:''})})}}
 function showLogin(msg){$('#app').innerHTML=`<div class="login-wrap"><div class="login"><img src="__BRAND__" alt="Classic Pack" style="height:70px"><h1>PMS</h1><div class="sub">Sign in to continue</div>
 <label>User ID<input id="em" autocomplete="username" autocapitalize="off" placeholder="Enter your User ID"></label>
 <label>Password<input id="pw" type="password" autocomplete="current-password" placeholder="Enter your password"></label>
@@ -77,9 +84,9 @@ function newJobModal(cb){const m=modal(`<h2>Add new job / job spec</h2><div clas
   if(!DB_JOBS.some(x=>jobId(x.colour,x.variant,x.shape,x.vendor,x.job,x.spec)===j.jid))DB_JOBS.push(j);m.remove();cb(j)}}
 
 let STOCK_BASE_LIVE=null;
-const NAVMAP={status:'status',so:'invoice',inward:'employees',outward:'register',scrap:'revisions',quality:'status',carton:'otherpay',slitting:'attendance',production:'dashboard',manpower:'users',skids:'photos',inventory:'months',daily:'slip',recon:'pfesi',datalog:'shifts',masters:'contractors',rules:'rulebook',rscrap:'revisions',rslit:'attendance',rprod:'dashboard',rman:'users',jobcalc:'billing',boxreg:'register',cstock:'otherpay',astock:'otherpay'};
-const TITLES={so:'Sale Order',inward:'Inward',outward:'Outward',scrap:'Scrap entry',quality:'Job Master',carton:'Carton & Alum/Tape entry',slitting:'Slitting',production:'Production',manpower:'Manpower',skids:'Skid details',inventory:'Inventory',daily:'Daily production report',recon:'Production vs Dispatch',datalog:'Data log',status:'Status check',masters:'Man Power Matrix',rules:'Rules',rscrap:'Scrap report',rslit:'Slitting report',rprod:'Production report',rman:'Manpower report',jobcalc:'Job Calculator',boxreg:'Box Register',cstock:'Carton stock',astock:'Alum & Tape stock'};
-const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register'],['cstock','Carton stock'],['astock','Alum & Tape stock']]],['SETTINGS',[['masters','Man Power Matrix'],['rules','Rules']]]];
+const NAVMAP={status:'status',so:'invoice',inward:'employees',outward:'register',scrap:'revisions',quality:'status',carton:'otherpay',slitting:'attendance',production:'dashboard',manpower:'users',skids:'photos',inventory:'months',daily:'slip',recon:'pfesi',datalog:'shifts',masters:'contractors',rules:'rulebook',tracking:'otherpay',backdate:'revisions',rscrap:'revisions',rslit:'attendance',rprod:'dashboard',rman:'users',jobcalc:'billing',boxreg:'register',cstock:'otherpay',astock:'otherpay'};
+const TITLES={so:'Sale Order',inward:'Inward',outward:'Outward',scrap:'Scrap entry',quality:'Job Master',carton:'Carton & Alum/Tape entry',slitting:'Slitting',production:'Production',manpower:'Manpower',skids:'Skid details',inventory:'Inventory',daily:'Daily production report',recon:'Production vs Dispatch',datalog:'Data log',status:'Status check',masters:'Man Power Matrix',rules:'Rules',tracking:'Stock tracking',backdate:'Back-date review',rscrap:'Scrap report',rslit:'Slitting report',rprod:'Production report',rman:'Manpower report',jobcalc:'Job Calculator',boxreg:'Box Register',cstock:'Carton stock',astock:'Alum & Tape stock'};
+const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register'],['cstock','Carton stock'],['astock','Alum & Tape stock']]],['SETTINGS',[['masters','Man Power Matrix'],['tracking','Stock tracking'],['backdate','Back-date review'],['rules','Rules']]]];
 let THRESH=50;
 // delete an entry from a list: confirm first, some rows are protected (guard returns the reason)
 const bindDel=(list,key,what,label,after,guard)=>document.querySelectorAll('[data-del]').forEach(a=>a.onclick=()=>{
@@ -106,7 +113,7 @@ const skidStatus=x=>!SLITS.some(t=>t.skid===x.no)?'Instock':(skidLeft(x)>THRESH?
 const LIVE=['skids','rslit','rprod','rscrap','inventory','daily','recon','boxreg','cstock','astock','rules','status','masters','rman','so','inward','outward','scrap','carton','quality','jobcalc','slitting','production'];let SKIDS=MOCK.skids.slice(),sideCollapsed=false;
 function shell(){
  $('#app').innerHTML=`<div class="layout"><aside><div class="brand"><img src="__BRAND__"><div><b>CP PMS</b><span>Classic Pack Pvt Ltd</span></div></div>
- <nav>${GROUPS.map(([g,a])=>`<div class="ngrp">${g}</div>`+a.map(t=>`<button data-v="${t[0]}" title="${t[1]}"><span class="tile">${NAV[NAVMAP[t[0]]]}</span><span class="lb">${t[1]}</span></button>`).join('')).join('')}</nav><div class="side-foot">Role: <b style="color:var(--gold2)">${esc(ME&&ME.roles&&ME.roles.pms||"")}</b></div></aside>
+ <nav>${GROUPS.map(([g,a])=>[g,a.filter(t=>(t[0]!=='tracking'||pcan('tracking_edit'))&&(t[0]!=='backdate'||pcan('backdate_review')))]).map(([g,a])=>`<div class="ngrp">${g}</div>`+a.map(t=>`<button data-v="${t[0]}" title="${t[1]}"><span class="tile">${NAV[NAVMAP[t[0]]]}</span><span class="lb">${t[1]}</span></button>`).join('')).join('')}</nav><div class="side-foot">Role: <b style="color:var(--gold2)">${esc(ME&&ME.roles&&ME.roles.pms||"")}</b></div></aside>
  <div class="content"><div class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="menu" id="mn" title="Expand / collapse menu">${I('menu')}</button><h1 id="ttl"></h1></div><div class="who"><div class="av">${esc((ME&&ME.full_name||"?")[0].toUpperCase())}</div><div>${esc(ME&&ME.full_name||"")}</div><button id="lo">${I('logout')} Log out</button></div></div><main id="main"></main></div></div>`;
  document.querySelectorAll('aside nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
  $('#mn').onclick=()=>{sideCollapsed=!sideCollapsed;document.body.classList.toggle('sc',sideCollapsed)}}
@@ -260,7 +267,7 @@ function prodForm(e){const isNew=!e;
  const cur=e?jobId(e.colour,e.variant,e.shape,e.vendor,e.job,e.spec):'';const v=k=>esc(e?.[k]??'');
  const sel=(id,l,opts,c)=>`<label>${l}<select id="${id}">${opts.map(o=>`<option ${String(c)===String(o)?'selected':''}>${o}</option>`).join('')}</select></label>`;
  $('#main').innerHTML=`<div class="row noprint" style="margin-bottom:12px"><button class="b l" id="bk">${bt('x','Back to production')}</button></div>
- <div class="card"><h2>1. Job</h2><div class="fg"><label>Job<input id="jq" placeholder="type vendor / variant / job to filter"><select id="jsel"><option value="">— pick job —</option>${jobs.map(j=>`<option value="${j.id}" ${cur===j.id?'selected':''}>${j.id} · ${esc(j.vendor)} · ${esc(j.variant)} · ${esc(j.job)} · ${esc(j.spec)}</option>`).join('')}</select></label>
+ <div class="card"><h2>1. Job</h2><div class="fg"><label>Shape<select id="psh"></select></label><label>Job Name<select id="pjb"></select></label><label>Job Spec<select id="psp"></select></label><label>Vendor · Variant · Colour<select id="jsel"></select></label>
   <label>Job ID (auto)<input id="jid" readonly></label><label>Vendor<input id="ve" readonly></label><label>Variant<input id="va" readonly></label>
   <label>Colour<input id="col" readonly></label><label>Shape<input id="sh" readonly></label><label>Job Name<input id="jb" readonly></label><label>Job Spec<input id="sp" readonly></label></div>
   <div class="row noprint" style="margin-top:8px"><button class="b l" id="njp">${bt('plus','Add new job / job spec')}</button><span class="mut">Production does not depend on a skid. Pick any job; if it is not listed, add it here.</span></div></div>
@@ -272,8 +279,16 @@ function prodForm(e){const isNew=!e;
   <label>Carton name<select id="cn"><option value="">— pick variation first —</option></select></label><label>Quantity<input id="cq" type="number" value="${v('cqty')}"></label></div>
   <div class="row noprint" style="margin-top:14px"><button class="b g" id="sv2">${bt('save',isNew?'Save production':'Save changes')}</button><button class="b l" id="cx">${bt('x','Cancel')}</button></div></div>`;
  const J=()=>jobs.find(j=>j.id===$('#jsel').value);
- $('#jq').oninput=()=>{const t=$('#jq').value.toLowerCase(),cur=$('#jsel').value;$('#jsel').innerHTML='<option value="">— pick job —</option>'+jobs.filter(j=>!t||(j.vendor+j.variant+j.job+j.spec+j.id).toLowerCase().includes(t)||j.id===cur).map(j=>`<option value="${j.id}" ${cur===j.id?'selected':''}>${j.id} · ${esc(j.vendor)} · ${esc(j.variant)} · ${esc(j.job)} · ${esc(j.spec)}</option>`).join('')};
- $('#njp').onclick=()=>newJobModal(j=>{jobs.push({id:j.jid,colour:j.colour,variant:j.variant,shape:j.shape,vendor:j.vendor,job:j.job,spec:j.spec});$('#jq').value='';$('#jq').oninput();$('#jsel').value=j.jid;upd()});
+ const po=(id,arr,ph,cur)=>{$(id).innerHTML=`<option value="">${ph}</option>`+arr.map(o=>`<option value="${esc(o)}" ${o===cur?'selected':''}>${esc(o)}</option>`).join('')};
+ const cj0=jobs.find(j=>j.id===cur);
+ const fSh=()=>po('#psh',[...new Set(jobs.map(j=>j.shape))].sort(),'— pick shape —',cj0?.shape);
+ const fJb=(c)=>{const s=$('#psh').value;po('#pjb',[...new Set(jobs.filter(j=>j.shape===s).map(j=>j.job))].sort(),s?'— pick job name —':'— pick shape first —',c)};
+ const fSp=(c)=>{const s=$('#psh').value,jb=$('#pjb').value;po('#psp',[...new Set(jobs.filter(j=>j.shape===s&&j.job===jb).map(j=>j.spec))].sort(),jb?'— pick job spec —':'— pick job name first —',c)};
+ const fRf=(c)=>{const s=$('#psh').value,jb=$('#pjb').value,sp=$('#psp').value,L=sp?jobs.filter(j=>j.shape===s&&j.job===jb&&j.spec===sp):[];
+  $('#jsel').innerHTML=(L.length===1?'':`<option value="">${sp?'— pick vendor / variant —':'— pick job spec first —'}</option>`)+L.map(j=>`<option value="${j.id}" ${(c===j.id||L.length===1)?'selected':''}>${esc(j.vendor)} · ${esc(j.variant)} · ${esc(j.colour)}</option>`).join('')};
+ fSh();fJb(cj0?.job);fSp(cj0?.spec);fRf(cur);
+ $('#psh').onchange=()=>{fJb();fSp();fRf();upd()};$('#pjb').onchange=()=>{fSp();fRf();upd()};$('#psp').onchange=()=>{fRf();upd()};
+ $('#njp').onclick=()=>newJobModal(j=>{const id=j.jid;if(!jobs.find(x=>x.id===id))jobs.push({id,colour:j.colour,variant:j.variant,shape:j.shape,vendor:j.vendor,job:j.job,spec:j.spec});fSh();$('#psh').value=j.shape;fJb(j.job);fSp(j.spec);fRf(id);upd()});
  const upd=()=>{const j=J(),f=(i,x)=>$(i).value=x??'';if(j){f('#jid',j.id);f('#ve',j.vendor);f('#va',j.variant);f('#col',j.colour);f('#sh',j.shape);f('#jb',j.job);f('#sp',j.spec);f('#dp',dispatched(j.id))}
   const cp=$('#cm').value;$('#fg').disabled=!['BODY','LID','BOTTOM','CAN'].includes(cp);$('#sf').disabled=cp!=='CAN';if($('#fg').disabled)$('#fg').value=0;if($('#sf').disabled)$('#sf').value=0;
   mpAssist(j,e);
@@ -484,7 +499,9 @@ function jmForm(e){const isNew=!e;$('#ttl').innerHTML=I('open')+' '+(isNew?'New 
  $('#sv2').onclick=()=>{if(!val('#sh')||!val('#jb').trim()||!val('#sp').trim())return toast('Enter shape, job name and job spec',true);
   const f=$('#pic').files[0];const rec={shape:val('#sh'),job:val('#jb').trim().toUpperCase(),spec:val('#sp').trim(),lid:val('#ld'),ht:+val('#ht')||null,bw:n('#bw')||null,bh:n('#bh')||null,bt:n('#bt')||null,lw:n('#lw')||null,lh:n('#lh')||null,lt:n('#lt')||null,tw:n('#tw')||null,th:n('#th')||null,tt:n('#tt')||null,lbt:n('#lbt')||null,lbw:n('#lbw')||null,tbt:n('#tbt')||null,tbw:n('#tbw')||null,img:f?f.name:e?.img,draft:false};
   if(isNew&&jmFind(rec.shape,rec.job,rec.spec)&&!jmFind(rec.shape,rec.job,rec.spec).draft)return toast('This job spec already exists - edit it instead',true);
-  const ex=e||jmFind(rec.shape,rec.job,rec.spec);if(ex)Object.assign(ex,rec);else JM.unshift({id:Date.now(),...rec});syncShapes();toast('Saved');go('quality')}}
+  const ex=e||jmFind(rec.shape,rec.job,rec.spec);const o=ex||{};
+  saveJM({job_spec_id:ex?ex.id:null,shape:rec.shape,job:rec.job,spec:rec.spec,lid_type:rec.lid,height:rec.ht,body_w:rec.bw,body_h:rec.bh,body_t:rec.bt,lid_w:rec.lw,lid_h:rec.lh,lid_t:rec.lt,bot_w:rec.tw,bot_h:rec.th,bot_t:rec.tt,wt_body:o.wb??null,wt_lid:o.wl??null,wt_bottom:o.wt??null,body_base_t:o.bbt??null,body_base_wt:o.bbw??null,lid_base_t:rec.lbt,lid_base_wt:rec.lbw,bot_base_t:rec.tbt,bot_base_wt:rec.tbw,picture_name:rec.img||null})}}
+async function saveJM(p){const {error}=await R('job_master_save',{p});if(error)return toast(cleanErr(error.message),true);toast('Saved');await hydrate();go('quality')}
 
 /* ---------------- Job Calculator (sheet layout -> scrap per sheet) ---------------- */
 const JC_SAVED={};
@@ -576,11 +593,11 @@ VIEWS.masters=()=>{
   $('#el').innerHTML=`<div class="scroll"><table><tr><th>Job Name</th><th>Target quantity / 8 hours (CAN)</th><th>Body MP</th><th>Lid MP</th><th>Bottom MP</th><th>CAN MP (total)</th><th>Output per person / 8 hrs</th><th>Status</th><th>Actions</th></tr>
   ${d.map(x=>`<tr><td>${esc(x.job)}</td><td><input class="mi" data-j="${esc(x.job)}" data-f="t" type="number" value="${x.t??''}" style="width:130px"></td>${cpart(x)}<td>${cm(x)&&x.t?Math.round(x.t/cm(x)).toLocaleString():''}</td><td>${x.t&&cm(x)?'<span class="tag ok">Set</span>':'<span class="tag bad">Not set</span>'}</td><td>${MM[x.job]?ib('x','Remove from matrix',`data-rm="${esc(x.job)}"`,'d'):''}</td></tr>`).join('')}</table></div><div class="mut">${d.length} shown · type in the boxes — changes are kept as you go (use Save all to confirm)</div>
   <div class="row noprint" style="margin-top:10px"><button class="b g" id="sv">${bt('save','Save all')}</button></div>`;
-  document.querySelectorAll('.mi').forEach(i=>i.onchange=()=>{const j=i.dataset.j,f=i.dataset.f,v=+i.value||0;if(['BODY','LID','BOTTOM'].includes(f)){const t=MMC[j]=MMC[j]||{};if(i.value==='')delete t[f];else t[f]=v;if(!Object.keys(t).length)delete MMC[j]}else{const cur=MM[j]||[0,0];MM[j]=f==='t'?[v,cur[1]]:[cur[0],v];if(!MM[j][0]&&!MM[j][1])delete MM[j]}load()});
-  document.querySelectorAll('[data-rm]').forEach(a=>a.onclick=()=>{if(confirm('Remove '+a.dataset.rm+' from the matrix?')){delete MM[a.dataset.rm];load()}});
-  $('#sv').onclick=()=>toast('Saved')};
+  document.querySelectorAll('.mi').forEach(i=>i.onchange=()=>{const j=i.dataset.j,f=i.dataset.f,v=+i.value||0;MM_DIRTY.add(j);if(['BODY','LID','BOTTOM'].includes(f)){const t=MMC[j]=MMC[j]||{};if(i.value==='')delete t[f];else t[f]=v;if(!Object.keys(t).length)delete MMC[j]}else{const cur=MM[j]||[0,0];MM[j]=f==='t'?[v,cur[1]]:[cur[0],v];if(!MM[j][0]&&!MM[j][1])delete MM[j]}load()});
+  document.querySelectorAll('[data-rm]').forEach(a=>a.onclick=()=>{if(confirm('Remove '+a.dataset.rm+' from the matrix?')){MM_DIRTY.add(a.dataset.rm);delete MM[a.dataset.rm];delete MMC[a.dataset.rm];load()}});
+  $('#sv').onclick=async()=>{let n=0;for(const j of [...MM_DIRTY]){const id=MXID[j];if(!id){toast('Job '+j+' is not in Job Master yet. Add it in Job Master first.',true);MM_DIRTY.delete(j);continue}const m=MM[j]||[0,0],c=MMC[j]||{};const {error}=await R('matrix_save',{p:{job_id:id,target:m[0]||0,can_mp:m[1]||0,body_mp:c.BODY??null,lid_mp:c.LID??null,bottom_mp:c.BOTTOM??null}});if(error)return toast(cleanErr(error.message),true);MM_DIRTY.delete(j);n++}toast(n?('Saved '+n+' job(s)'):'Nothing to save');await hydrate();VIEWS.masters()}};
  load();$('#es').oninput=load;$('#ef').onchange=load;
- $('#en').onclick=()=>{const j=prompt('Job name');if(!j)return;const t=+prompt('Target quantity per 8 hours')||0,m=+prompt('Man power (MP)')||0;MM[j.trim().toUpperCase()]=[t,m];VIEWS.masters()};
+ $('#en').onclick=()=>{const j=prompt('Job name');if(!j)return;const t=+prompt('Target quantity per 8 hours')||0,m=+prompt('Man power (MP)')||0;MM[j.trim().toUpperCase()]=[t,m];MM_DIRTY.add(j.trim().toUpperCase());VIEWS.masters()};
  const chk=()=>{const m=mmGet($('#cj').value,'CAN'),a=+$('#ca').value,h=+$('#ch').value,c=+$('#cm').value;const e=m&&a&&h?m[1]/m[0]*a*(8/h):0;$('#ce').value=e?e.toFixed(1):'';$('#cf').value=e&&c?(e/c*100).toFixed(0)+' %':''};
  ['#cj','#ca','#ch','#cm'].forEach(i=>$(i).oninput=$(i).onchange=chk)};
 
@@ -674,7 +691,7 @@ VIEWS.rules=()=>{
   <div class="row noprint" style="margin-top:12px"><button class="b g" id="ok">${bt('save','Save rule')}</button></div>`);
   $('#ok').onclick=()=>{const raw=$('#nv').value,v=r.t==='sel'?raw:+raw;if(r.t==='num'&&(raw===''||v<0))return toast('Enter a valid number',true);if(!$('#nr').value.trim())return toast('Give a reason',true);
    if(r.k==='data_log_red_days'&&v<=rv('data_log_amber_days')||r.k==='data_log_amber_days'&&v>=rv('data_log_red_days'))return toast('Amber days must be less than red days',true);
-   RHIST.unshift({on:TODAY,n:r.n,o:r.v,v,f:$('#nf').value,why:$('#nr').value.trim(),by:'Admin'});r.v=v;if(r.k==='skid_wip_used_threshold')THRESH=v;document.querySelector('.modal')?.remove();toast('Saved');VIEWS.rules()}})};
+   R('rule_set',{p_key:r.k,p_value:v,p_from:$('#nf').value||null,p_reason:$('#nr').value.trim()}).then(async({error})=>{if(error)return toast(cleanErr(error.message),true);document.querySelector('.modal')?.remove();toast('Saved');await hydrate();VIEWS.rules()})}})};
 /* ---------------- Reports (layout, sample data) ---------------- */
 const dlcsv=(n,rows)=>{const c=rows.map(r=>r.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download=n+'.csv';a.click()};
 const uniq=(a,f)=>[...new Set(a.map(f).filter(Boolean))].sort();
@@ -909,3 +926,30 @@ start();
  OUT.push({id:200+OUT.length,date:'2026-11-09',so:'',vendor:b.vendor,variant:b.variant,colour:b.colour,shape:'RECTANGLE',job:'NUTCASE 38MM',spec:'124x70x38',boxes:24,perbox:50,qty:1200,invoice:'INV-2611-012',dc:'D212',contact:'',vehicle:'PY01AB1234',jid:jobId(b.colour,b.variant,'RECTANGLE',b.vendor,'NUTCASE 38MM','124x70x38')});
  const bo=PROD.find(r=>r.id===2);if(bo){bo.fg=5200;bo.sfg=0}   // component rows: FG only (VBA rule)
 })();
+
+/* ---------------- Stage 2: To check and update, Stock tracking, Back-date review ---------------- */
+const _st0=VIEWS.status;VIEWS.status=()=>{_st0();todoPanel()};
+async function todoPanel(){const {data,error}=await R('todo_list');if(error||!data||VIEW!=='status')return;const m=$('#main');if(!m)return;
+ const open=data.filter(x=>x.count>0),clear=data.filter(x=>x.count===0);
+ const card=document.createElement('div');card.className='card';card.id='todo';
+ card.innerHTML=`<h2>To check and update <span class="mut" style="font-weight:400;font-size:13px">(${esc(ME.roles.pms)})</span></h2>`+(open.length?`<div class="scroll"><table><tr><th style="text-align:left">What</th><th>Count</th><th>Actions</th></tr>${open.map(x=>`<tr><td style="text-align:left">${esc(x.label)}</td><td><b style="color:#f0cf6a">${Number(x.count).toLocaleString()}</b></td><td>${ib('eye','Show the first '+x.rows.length,`data-tl="${x.key}"`)}${ib('open','Open the screen',`data-to="${x.view}"`)}</td></tr>`).join('')}</table></div>`:'<div class="mut">Nothing to check right now.</div>')+(clear.length?`<div class="mut" style="margin-top:6px">All clear: ${clear.map(x=>esc(x.label)).join(' · ')}</div>`:'');
+ m.insertBefore(card,m.firstChild);
+ card.querySelectorAll('[data-to]').forEach(a=>a.onclick=()=>go(a.dataset.to));
+ card.querySelectorAll('[data-tl]').forEach(a=>a.onclick=()=>{const x=data.find(y=>y.key===a.dataset.tl);modal(`<h2>${esc(x.label)}</h2><div class="mut">Showing ${x.rows.length} of ${Number(x.count).toLocaleString()}</div><div class="scroll" style="max-height:60vh"><table>${x.rows.map(r=>`<tr><td style="text-align:left">${esc(r)}</td></tr>`).join('')}</table></div>`)})}
+VIEWS.tracking=async()=>{const {data,error}=await R('tracking_list');if(error)return toast(cleanErr(error.message),true);const rows=data||[];
+ const od=(()=>{const d=new Date(Date.parse(STOCK_BASE_LIVE||'2026-06-30')+864e5);return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})})();
+ $('#main').innerHTML=`<div class="kpi"><div><b>${rows.length}</b>Components</div><div><b>${rows.filter(r=>r.tracked).length}</b>Tracked</div><div><b>${rows.filter(r=>!r.tracked).length}</b>Not tracked</div><div><b>${rows.filter(r=>r.tracked&&+r.stock_if_tracked<0).length}</b>Below zero</div></div>
+ <div class="card"><h2>Stock tracking</h2><div class="mut" style="margin-bottom:8px">Switch tracking on or off for each LID, BOTTOM and TAGGER. CAN stock is always tracked. Stock = Opening (${od}) + made − used.</div>
+ <div class="row noprint"><label>Search<input id="ts" placeholder="Job name, spec"></label><label>Component<select id="tc"><option value="">All</option><option>LID</option><option>BOTTOM</option><option>TAGGER</option></select></label><label>Show<select id="tf"><option value="">All</option><option value="on">Tracked</option><option value="off">Not tracked</option><option value="neg">Below zero</option></select></label></div><div id="tl" style="margin-top:10px"></div></div>`;
+ const paint=()=>{const t=$('#ts').value.toLowerCase(),c=$('#tc').value,f=$('#tf').value;const d=rows.filter(r=>(!t||(r.job+' '+r.spec).toLowerCase().includes(t))&&(!c||r.component===c)&&(!f||(f==='on'?r.tracked:f==='off'?!r.tracked:r.tracked&&+r.stock_if_tracked<0)));
+  $('#tl').innerHTML=`<div class="scroll"><table><tr><th>Job Name</th><th>Job Spec</th><th>Component</th><th>Opening – ${od}</th><th>Made</th><th>Used</th><th>Stock</th><th>Tracked</th></tr>${d.map(r=>`<tr><td>${esc(r.job)}</td><td>${esc(r.spec)}</td><td>${r.component}</td><td>${Number(r.opening).toLocaleString()}</td><td>${Number(r.made).toLocaleString()}</td><td>${Number(r.used).toLocaleString()}</td><td style="${+r.stock_if_tracked<0?'color:#ff9d9d;font-weight:700':''}">${Number(r.stock_if_tracked).toLocaleString()}</td><td><input type="checkbox" class="tk" data-s="${r.job_spec_id}" data-c="${r.component}" ${r.tracked?'checked':''}></td></tr>`).join('')}</table></div><div class="mut">${d.length} shown</div>`;
+  document.querySelectorAll('.tk').forEach(k=>k.onchange=async()=>{const {error}=await R('tracking_set',{p_spec:+k.dataset.s,p_comp:k.dataset.c,p_tracked:k.checked});if(error){k.checked=!k.checked;return toast(cleanErr(error.message),true)}const r=rows.find(x=>x.job_spec_id==k.dataset.s&&x.component===k.dataset.c);if(r)r.tracked=k.checked;toast(k.checked?'Tracking on':'Tracking off');paint()})};
+ ['#ts','#tc','#tf'].forEach(i=>$(i).oninput=$(i).onchange=paint);paint()};
+VIEWS.backdate=async()=>{let st='Pending';
+ const draw=async()=>{const {data,error}=await R('backdate_list',{p_status:st||null});if(error)return toast(cleanErr(error.message),true);const rows=data||[];
+  $('#main').innerHTML=`<div class="card"><h2>Back-date review</h2><div class="mut" style="margin-bottom:8px">Entries made for a date older than ${EDIT_DAYS} days, with the reason given. Mark each one reviewed once you have checked it.</div>
+  <div class="row noprint"><label>Show<select id="bs"><option ${st==='Pending'?'selected':''} value="Pending">Pending</option><option ${st==='Reviewed'?'selected':''} value="Reviewed">Reviewed</option><option ${!st?'selected':''} value="">All</option></select></label></div>
+  <div class="scroll" style="margin-top:10px"><table><tr><th>Entry date</th><th>Reason</th><th>Entered by</th><th>Entered on</th><th>Status</th><th>Review note</th><th>Actions</th></tr>${rows.map(b=>`<tr><td>${b.entry_date}</td><td style="text-align:left">${esc(b.reason)}</td><td>${esc(b.by_name)}</td><td>${String(b.entered_at||'').slice(0,16).replace('T',' ')}</td><td><span class="tag ${b.status==='Pending'?'warn':'ok'}">${b.status}</span></td><td>${esc(b.review_note||'')}${b.reviewed_name?' <span class="mut">('+esc(b.reviewed_name)+')</span>':''}</td><td>${b.status==='Pending'?ib('save','Mark reviewed',`data-r="${b.id}"`):''}</td></tr>`).join('')||'<tr><td colspan=7>Nothing here</td></tr>'}</table></div></div>`;
+  $('#bs').onchange=()=>{st=$('#bs').value;draw()};
+  document.querySelectorAll('[data-r]').forEach(a=>a.onclick=()=>{const note=prompt('Review note (optional)');if(note===null)return;R('backdate_review',{p_id:+a.dataset.r,p_note:note||null}).then(({error})=>{if(error)return toast(cleanErr(error.message),true);toast('Marked reviewed');draw()})})};
+ draw()};

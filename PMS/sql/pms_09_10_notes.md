@@ -1,3 +1,5 @@
 pms_09_bootstrap: pms_api.bootstrap(p_from date default null) returns all lists in the shape the PMS screens use (so, skids, prod, out, scrap, slits, open, carton_items, alum_items, cled, aled, jobs, colours, shapes).
 pms_10_production_carton: pms_api.production_save now stores carton_item_id / carton_qty.
 Data: core.user_roles row pms/admin granted to the existing core admin user.
+pms_11_todo_list: pms_api.todo_list() role-aware "To check and update" counts and first 30 rows.
+pms_12_backdate_names: pms_api.backdate_list now returns by_name / reviewed_name.
