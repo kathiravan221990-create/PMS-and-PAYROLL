@@ -307,6 +307,7 @@ details.hd2{margin-top:12px;border:1px solid rgba(240,207,106,.3);border-radius:
 .login button.b{width:100%!important;margin-top:8px;padding:15px 16px!important;font-size:15px!important;font-weight:700;letter-spacing:.03em;border:0!important;border-radius:9px!important;background:linear-gradient(180deg,#ffe9ad,#d9a637 55%,#b5811d)!important;color:#04101c!important;box-shadow:0 0 0 1px rgba(255,224,140,.5) inset,0 10px 24px rgba(150,105,15,.4)!important;justify-content:center;cursor:pointer}
 .login button.b:hover{transform:translateY(-1px);box-shadow:0 0 0 1px rgba(255,224,140,.6) inset,0 14px 28px rgba(150,105,15,.5)!important}
 .login .msg{margin-top:16px;padding:10px 12px;border-radius:8px;background:rgba(217,92,92,.12)!important;border:1px solid rgba(217,92,92,.4)!important;color:#ffb3b3!important;font-size:13px;text-align:left}
+.login{max-width:370px!important;padding:26px 28px 24px!important;border-radius:22px!important}.login img{width:150px!important;padding:6px 10px!important;margin:0 auto 6px!important}.login h1{font-size:21px!important;margin:4px 0 2px!important}.login .sub{font-size:11px!important;margin-bottom:14px!important}.login label{margin:0 0 12px!important;font-size:11px!important}.login input{padding:10px 12px!important;font-size:14px!important;margin-top:5px}.login button.b{padding:10px!important;font-size:13px!important}
 aside nav .ngrp{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}aside nav .ngrp:hover{color:#f0cf6a}aside nav .ngrp i{font-style:normal;font-size:11px;transition:transform .15s}aside nav .ngrp.closed i{transform:rotate(-90deg)}aside nav .gbody.closed{display:none}body.sc aside nav .gbody{display:block!important}
 main .card .scroll table td{background:#ffecc5!important;color:#000!important;border-bottom:1px solid #e6cf9a!important;border-right:1px solid #ecd9a8!important}main .card .scroll table tr:nth-child(even) td{background:#fff3d9!important}main .card .scroll table tr:hover td{background:#ffe0a0!important}main .card .scroll table td b,main .card .scroll table td a{color:#000!important}
 .kpi>div{background:linear-gradient(150deg,#143a78,#0a2150)!important;color:#f0cf6a!important;border:1px solid rgba(240,207,106,.55)!important;border-left:5px solid #d9b341!important;box-shadow:0 4px 14px rgba(0,0,0,.35);font-weight:600}.kpi>div b{color:#f0cf6a!important;font-size:20px}
@@ -1217,6 +1218,7 @@ VIEWS.rulebook=()=>{
 /* ---------------- Reports (layout, sample data) ---------------- */
 const dlcsv=(n,rows)=>{const c=rows.map(r=>r.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download=n+'.csv';a.click()};
 const uniq=(a,f)=>[...new Set(a.map(f).filter(Boolean))].sort();
+const jmJobs=()=>[...new Set((JM||[]).map(j=>j.job))].sort(), jmSpecs=job=>[...new Set((JM||[]).filter(j=>!job||j.job===job).map(j=>j.spec))].sort();
 const selOpts=(a,all)=>`<option value="">${all}</option>`+a.map(x=>`<option>${esc(x)}</option>`).join('');
 const fl=(id,l,opts)=>`<label>${l}<select id="${id}">${opts}</select></label>`;
 const tbl=(h,rows,empty)=>`<div class="scroll"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.length?rows.map(r=>`<tr>${r.map(c=>`<td>${c??''}</td>`).join('')}</tr>`).join(''):`<tr><td colspan=${h.length}>${empty||'No records'}</td></tr>`}</table></div>`;
@@ -1225,7 +1227,9 @@ const tg=(c,t)=>`<span class="tag ${c}">${t}</span>`;
 function rep(title,note,filters,paint,csv){
  $('#main').innerHTML=`<div id="kp"></div><div class="card"><h2>${title}</h2><div class="mut" style="margin-bottom:8px">${note}</div><div class="row noprint">${filters}<button class="b l" id="ex">${bt('dl','Export')}</button><button class="b l" id="pr">${bt('print','Print')}</button></div><div id="el" style="margin-top:10px"></div></div>`;
  let last=[];const run=()=>{const o=paint();$('#kp').innerHTML=o.kp?kp(o.kp):'';$('#el').innerHTML=o.html;last=o.csv||[]};
- document.querySelectorAll('#main select,#main input').forEach(i=>i.onchange=i.oninput=run);run();
+ document.querySelectorAll('#main select,#main input').forEach(i=>i.onchange=i.oninput=run);
+ if($('#j')&&$('#s')){$('#j').onchange=()=>{$('#s').innerHTML=selOpts(jmSpecs($('#j').value),'All specs');run()}}
+ run();
  $('#ex').onclick=()=>dlcsv(title.replace(/\W+/g,'_'),last);$('#pr').onclick=()=>window.print()}
 const mths=a=>uniq(a,x=>x.date.slice(0,7));
 const mname=m=>m?new Date(m+'-01').toLocaleString('en',{month:'short',year:'numeric'}).toUpperCase():'';
@@ -1233,7 +1237,7 @@ const monSel=(a)=>fl('m','Month',`<option value="">All months</option>`+mths(a).
 
 /* 1 Skid details */
 VIEWS.skids=()=>rep('Skid details','Every skid from Inward with its status. Filter by Job, Spec, Vendor, Variant and month.',
- fl('j','Job Name',selOpts(uniq(SKIDS,x=>x.job),'All jobs'))+fl('s','Job Spec',selOpts(uniq(SKIDS,x=>x.spec),'All specs'))+fl('v','Vendor',selOpts(uniq(SKIDS,x=>x.vendor),'All vendors'))+fl('a','Variant',selOpts(uniq(SKIDS,x=>x.variant),'All variants'))+monSel(SKIDS),
+ fl('j','Job Name',selOpts(jmJobs(),'All jobs'))+fl('s','Job Spec',selOpts(jmSpecs(''),'All specs'))+fl('v','Vendor',selOpts(uniq(SKIDS,x=>x.vendor),'All vendors'))+fl('a','Variant',selOpts(uniq(SKIDS,x=>x.variant),'All variants'))+monSel(SKIDS),
  ()=>{const f=(i,k)=>$(i).value,d=SKIDS.filter(x=>(!f('#j')||x.job===f('#j'))&&(!f('#s')||x.spec===f('#s'))&&(!f('#v')||x.vendor===f('#v'))&&(!f('#a')||x.variant===f('#a'))&&(!f('#m')||x.date.slice(0,7)===f('#m')));
   const st=d.map(skidStatus),c=n=>st.filter(x=>x===n).length;
   const rows=d.map((x,i)=>[x.no,x.date,esc(x.vendor),esc(x.variant),esc(x.job),esc(x.spec),x.comp,x.net,Math.round(skidNos(x)),slitUsed(x.no),Math.max(0,Math.round(skidLeft(x))),tg(st[i]==='Used'?'':st[i]==='WIP'?'warn':'ok',st[i])]);
@@ -1242,16 +1246,16 @@ VIEWS.skids=()=>rep('Skid details','Every skid from Inward with its status. Filt
 
 /* 2 Slitting report */
 VIEWS.rslit=()=>rep('Slitting report','Slitting by skid with the count of Body / Lid / Bottom and the weight check.',
- monSel(SLITS)+fl('j','Job Name',selOpts(uniq(SLITS,r=>SKIDS.find(k=>k.no===r.skid)?.job),'All jobs')),
- ()=>{const d=SLITS.map(r=>({r,k:SKIDS.find(x=>x.no===r.skid)})).filter(({r,k})=>(!$('#m').value||r.date.slice(0,7)===$('#m').value)&&(!$('#j').value||k.job===$('#j').value));
+ monSel(SLITS)+fl('j','Job Name',selOpts(jmJobs(),'All jobs'))+fl('s','Job Spec',selOpts(jmSpecs(''),'All specs')),
+ ()=>{const d=SLITS.map(r=>({r,k:SKIDS.find(x=>x.no===r.skid)})).filter(({r,k})=>(!$('#m').value||r.date.slice(0,7)===$('#m').value)&&(!$('#j').value||k.job===$('#j').value)&&(!$('#s').value||k.spec===$('#s').value));
   const rows=d.map(({r,k})=>{const c=slitCalc(r,k);return [r.date,r.skid,esc(k.vendor),esc(k.job),esc(k.spec),r.count,r.body*r.count||'',r.lid*r.count||'',r.bottom*r.count||'',c.exp.toLocaleString(),c.bif.toFixed(1),c.variance.toFixed(1)]});
   const h=['Date','Skid No','Vendor','Job Name','Job Spec','Sheets slit','Body','Lid','Bottom','Expected production','Bifurcated kg','Variance kg'];
   return {kp:[[d.length,'Entries'],[d.reduce((a,{r})=>a+r.count,0).toLocaleString(),'Sheets slit'],[d.reduce((a,{r,k})=>a+slitCalc(r,k).exp,0).toLocaleString(),'Expected production']],html:tbl(h,rows),csv:[h].concat(rows)}});
 
 /* 3 Production report */
 VIEWS.rprod=()=>rep('Production report','Production entries with man power efficiency, FG, SFG and scrap. The summary groups by job.',
- monSel(PROD)+fl('c','Component',selOpts(['CAN','BODY','LID','BOTTOM','TAGGER'],'All'))+fl('j','Job Name',selOpts(uniq(PROD,r=>r.job),'All jobs')),
- ()=>{const d=PROD.filter(r=>(!$('#m').value||r.date.slice(0,7)===$('#m').value)&&(!$('#c').value||r.comp===$('#c').value)&&(!$('#j').value||r.job===$('#j').value));
+ monSel(PROD)+fl('c','Component',selOpts(['CAN','BODY','LID','BOTTOM','TAGGER'],'All'))+fl('j','Job Name',selOpts(jmJobs(),'All jobs'))+fl('s','Job Spec',selOpts(jmSpecs(''),'All specs')),
+ ()=>{const d=PROD.filter(r=>(!$('#m').value||r.date.slice(0,7)===$('#m').value)&&(!$('#c').value||r.comp===$('#c').value)&&(!$('#j').value||r.job===$('#j').value)&&(!$('#s').value||r.spec===$('#s').value));
   const rows=d.map(r=>{const e=expMP(r),ef=r.mp&&e?e/r.mp:0;return [r.date,esc(r.job),esc(r.spec),r.comp,(+r.actual).toLocaleString(),r.mp,r.hrs,e||'',e?tg(ef>=1?'ok':ef>=.8?'warn':'bad',(ef*100).toFixed(0)+'%'):'',r.fg||'',r.sfg||'',r.scrap||'']});
   const h=['Date','Job Name','Job Spec','Component','Actual','Man power','Hours','Expected MP','Efficiency','FG','SFG','Scrap'];
   const by={};d.forEach(r=>{const b=by[r.job]=by[r.job]||{a:0,s:0,mp:0,e:0};b.a+=+r.actual;b.s+=+r.scrap||0;b.mp+=+r.mp||0;b.e+=expMP(r)});
@@ -1260,15 +1264,15 @@ VIEWS.rprod=()=>rep('Production report','Production entries with man power effic
 
 /* 4 Scrap report */
 VIEWS.rscrap=()=>rep('Scrap report','Scrap kg and component counts by job. Counts use the Job Master weights.',
- monSel(SCRAP)+fl('j','Job Name',selOpts(uniq(SCRAP,r=>r.job),'All jobs')),
- ()=>{const d=SCRAP.filter(r=>(!$('#m').value||r.date.slice(0,7)===$('#m').value)&&(!$('#j').value||r.job===$('#j').value)),by={};
+ monSel(SCRAP)+fl('j','Job Name',selOpts(jmJobs(),'All jobs'))+fl('s','Job Spec',selOpts(jmSpecs(''),'All specs')),
+ ()=>{const d=SCRAP.filter(r=>(!$('#m').value||r.date.slice(0,7)===$('#m').value)&&(!$('#j').value||r.job===$('#j').value)&&(!$('#s').value||r.spec===$('#s').value)),by={};
   d.forEach(r=>{const c=scrapCnt(r),b=by[r.job]=by[r.job]||{n:0,kg:0,b:0,l:0,t:0};b.n++;b.kg+=scrapKg(r);b.b+=c.body;b.l+=c.lid;b.t+=c.bottom});
   const rows=Object.keys(by).map(j=>[esc(j),by[j].n,by[j].kg.toFixed(2),by[j].b.toLocaleString(),by[j].l.toLocaleString(),by[j].t.toLocaleString()]),h=['Job Name','Entries','Scrap kg','Body Nos','Lid Nos','Bottom Nos'];
   return {kp:[[d.length,'Entries'],[d.reduce((a,r)=>a+scrapKg(r),0).toFixed(1),'Scrap kg'],[Object.keys(by).length,'Jobs']],html:tbl(h,rows),csv:[h].concat(rows)}});
 
 /* 5 Inventory */
 VIEWS.inventory=()=>rep('Inventory','Instock and WIP skids together: sheets still to be produced and the Body / Lid / Bottom they can still give. An Instock skid older than the non-moving age is flagged.',
- fl('j','Job Name',selOpts(uniq(SKIDS,x=>x.job),'All jobs'))+fl('s','Job Spec',selOpts(uniq(SKIDS,x=>x.spec),'All specs')),
+ fl('j','Job Name',selOpts(jmJobs(),'All jobs'))+fl('s','Job Spec',selOpts(jmSpecs(''),'All specs')),
  ()=>{const d=SKIDS.filter(x=>skidStatus(x)!=='Used'&&(!$('#j').value||x.job===$('#j').value)&&(!$('#s').value||x.spec===$('#s').value));
   const lay=k=>{const r=SLITS.filter(t=>SKIDS.find(x=>x.no===t.skid)?.job===k.job).sort((a,b)=>b.date.localeCompare(a.date))[0];return r||null};
   const old=x=>skidStatus(x)==='Instock'&&dd(TODAY,x.date)>rv('non_moving_months')*30;
@@ -1347,22 +1351,22 @@ VIEWS.daily=()=>{
  const dates=[...new Set(PROD.map(r=>r.date))].sort().reverse();
  rep('Daily production report',DPM==='CAN'?'Job-wise Opening / Production / FG / SFG / Scrap / Dispatch / Closing for one day. Dispatch comes from Outward. Stock rolls forward from 30 Jun 2026.':'Lid, Bottom and Tagger stock for one day. Bottom is used up by the CAN production plus scrap of the same day; Lid and Tagger by the CAN dispatch of the same day. Body is not tracked here.',
  `<div class="seg"><button class="${DPM==='CAN'?'on':''}" id="mc">CAN</button><button class="${DPM==='CAN'?'':'on'}" id="mo">Components</button></div>`+
- fl('d','Date',dates.map(d=>`<option>${d}</option>`).join(''))+monSel(PROD)+fl('j','Job Name',selOpts(uniq(PROD,r=>r.job),'All jobs'))+(DPM==='CAN'?'':fl('c','Component','<option value="">All (Lid / Bottom / Tagger)</option><option>LID</option><option>BOTTOM</option><option>TAGGER</option>')),
- ()=>{const dt=$('#d').value,jf=$('#j').value,mf=$('#m').value;if(mf&&dt.slice(0,7)!==mf){const f=dates.find(x=>x.slice(0,7)===mf);if(f&&f!==dt){$('#d').value=f}}
+ fl('d','Date',dates.map(d=>`<option>${d}</option>`).join(''))+monSel(PROD)+fl('j','Job Name',selOpts(jmJobs(),'All jobs'))+fl('s','Job Spec',selOpts(jmSpecs(''),'All specs'))+(DPM==='CAN'?'':fl('c','Component','<option value="">All (Lid / Bottom / Tagger)</option><option>LID</option><option>BOTTOM</option><option>TAGGER</option>')),
+ ()=>{const dt=$('#d').value,jf=$('#j').value,sf=$('#s').value,mf=$('#m').value;if(mf&&dt.slice(0,7)!==mf){const f=dates.find(x=>x.slice(0,7)===mf);if(f&&f!==dt){$('#d').value=f}}
   const D=$('#d').value,pv=dayBefore(D),hd=`<div style="font-weight:700;color:#ffd777;margin-bottom:6px">${asOn(D)}</div>`;
   if(DPM==='CAN'){
-   const ks=jobsOf().filter(r=>(!jf||r.job===jf)&&(canProd(r.job,r.spec,pv,D).length||dispQ(r.job,r.spec,pv,D)));
+   const ks=jobsOf().filter(r=>(!jf||r.job===jf)&&(!sf||r.spec===sf)&&(canProd(r.job,r.spec,pv,D).length||dispQ(r.job,r.spec,pv,D)));
    const rows=[],cs=ks.map(b=>{const rs=canProd(b.job,b.spec,pv,D),op=canClose(b.job,b.spec,pv),pr=sumA(rs,r=>r.actual),fg=sumA(rs,r=>r.fg),sf=sumA(rs,r=>r.sfg),sc=sumA(rs,r=>r.scrap),dp=dispQ(b.job,b.spec,pv,D),cl=op+pr-dp;
      rows.push([rid(b),esc(b.job),esc(b.spec),op.toLocaleString(),pr.toLocaleString(),fg.toLocaleString(),sf.toLocaleString(),sc.toLocaleString(),dp.toLocaleString(),`<b>${cl.toLocaleString()}</b>`,cl<0?tg('bad','Negative stock'):op+pr<dp?tg('bad','Error'):tg('ok','OK')]);return {op,pr,dp,cl,b}});
    const h=['Job ID','Job Name','Job Spec','Opening stock','Production','FG','SFG','Scrap','Dispatch','Closing stock','Check'];
    // non-moving: stock still there and no CAN production for the non-moving age
-   const nm=jobsOf().filter(r=>!jf||r.job===jf).map(r=>{const cl=canClose(r.job,r.spec,D);const last=PROD.filter(x=>x.comp==='CAN'&&jsk(x.job,x.spec)===jsk(r.job,r.spec)&&+x.actual>0&&x.date<=D).map(x=>x.date).sort().pop();
+   const nm=jobsOf().filter(r=>(!jf||r.job===jf)&&(!sf||r.spec===sf)).map(r=>{const cl=canClose(r.job,r.spec,D);const last=PROD.filter(x=>x.comp==='CAN'&&jsk(x.job,x.spec)===jsk(r.job,r.spec)&&+x.actual>0&&x.date<=D).map(x=>x.date).sort().pop();
      const days=last?Math.round((Date.parse(D)-Date.parse(last))/864e5):null;return {r,cl,last,days}}).filter(x=>x.cl>0&&(x.days==null||x.days>rv('non_moving_months')*30));
    const h2=['Job ID','Job Name','Job Spec','Stock','Last CAN production','Reason'],r2=nm.map(x=>[rid(x.r),esc(x.r.job),esc(x.r.spec),x.cl.toLocaleString(),x.last||'-',x.last?'No CAN production for '+x.days+' days':'No CAN production since opening stock']);
    return {kp:[[ks.length,'Jobs with activity'],[cs.reduce((a,c)=>a+c.pr,0).toLocaleString(),'Production'],[cs.reduce((a,c)=>a+c.dp,0).toLocaleString(),'Dispatch'],[nm.length,'Non-moving jobs']],
     html:hd+tbl(h,rows,'No CAN production or dispatch on this date')+'<div class="mut" style="margin:6px 0 12px">Closing = Opening + Production (FG + SFG) − Dispatch. Scrap is shown for information and is never part of stock.</div>'+(nm.length?`<div class="sect">Non-moving stock</div>`+tbl(h2,r2):''),csv:[h].concat(rows.map(r=>r.map(x=>String(x).replace(/<[^>]*>/g,''))))}}
   const cf=$('#c').value,cl=cf?[cf]:['LID','BOTTOM','TAGGER'],rows=[];let neg=0;
-  jobsOf().filter(r=>!jf||r.job===jf).forEach(b=>cl.forEach(c=>{if(!baseQ(b.job,b.spec,c)&&!PROD.some(r=>r.comp===c&&jsk(r.job,r.spec)===jsk(b.job,b.spec)))return;const made=compMade(c,b.job,b.spec,pv,D),use=compUse(c,b.job,b.spec,pv,D);if(!made&&!use)return;
+  jobsOf().filter(r=>(!jf||r.job===jf)&&(!sf||r.spec===sf)).forEach(b=>cl.forEach(c=>{if(!baseQ(b.job,b.spec,c)&&!PROD.some(r=>r.comp===c&&jsk(r.job,r.spec)===jsk(b.job,b.spec)))return;const made=compMade(c,b.job,b.spec,pv,D),use=compUse(c,b.job,b.spec,pv,D);if(!made&&!use)return;
    const op=compClose(c,b.job,b.spec,pv),cc=op+made-use;if(cc<0)neg++;rows.push([esc(b.job),esc(b.spec),c,op.toLocaleString(),made.toLocaleString(),use.toLocaleString(),`<b>${cc.toLocaleString()}</b>`,cc<0?tg('bad','Closing below zero - a Production figure on or before this date is wrong'):tg('ok','OK')])}));
   const h=['Job Name','Job Spec','Component','Opening stock','Production','Consumption','Closing stock','Check'];
   return {kp:[[rows.length,'Component rows'],[rows.reduce((a,r)=>a+(+String(r[4]).replace(/,/g,'')),0).toLocaleString(),'Produced'],[rows.reduce((a,r)=>a+(+String(r[5]).replace(/,/g,'')),0).toLocaleString(),'Consumed'],[neg,'Below zero']],
@@ -1370,9 +1374,9 @@ VIEWS.daily=()=>{
  $('#mc').onclick=()=>{DPM='CAN';VIEWS.daily()};$('#mo').onclick=()=>{DPM='COMP';VIEWS.daily()}};
 /* 7 Production vs Dispatch (the matching report) */
 VIEWS.recon=()=>rep('Production vs Dispatch','Production (CAN actual; scrap is shown elsewhere and never dispatched) against Dispatch, job-wise and month-wise, with Opening and Closing stock from the same ledger as the Daily report.',
- monSel(PROD.concat(OUT))+fl('j','Job Name',selOpts(uniq(PROD,r=>r.job),'All jobs')),
- ()=>{const m=$('#m').value,jf=$('#j').value,from=m?dayBefore(m+'-01'):STOCK_BASE,to=m?m+'-31':'2099-12-31';
-  const ks=jobsOf().filter(r=>(!jf||r.job===jf));
+ monSel(PROD.concat(OUT))+fl('j','Job Name',selOpts(jmJobs(),'All jobs'))+fl('s','Job Spec',selOpts(jmSpecs(''),'All specs')),
+ ()=>{const m=$('#m').value,jf=$('#j').value,sf=$('#s').value,from=m?dayBefore(m+'-01'):STOCK_BASE,to=m?m+'-31':'2099-12-31';
+  const ks=jobsOf().filter(r=>(!jf||r.job===jf)&&(!sf||r.spec===sf));
   const rows=ks.map(b=>{const op=m?canClose(b.job,b.spec,from):baseQ(b.job,b.spec,'CAN'),pr=sumA(canProd(b.job,b.spec,from,to),r=>r.actual),dp=dispQ(b.job,b.spec,from,to),cl=op+pr-dp;
     return {b,op,pr,dp,cl,st:op+pr<dp?'E':dp===op+pr?'D':'S'}}).filter(x=>x.pr||x.dp);
   const h=['Job ID','Job Name','Job Spec','Opening','Production','Dispatch','Closing','Status'],
