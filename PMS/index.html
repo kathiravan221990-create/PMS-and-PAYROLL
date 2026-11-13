@@ -1331,14 +1331,16 @@ VIEWS.rslit=()=>rep('Slitting report','Slitting by skid with the count of Body /
   return {kp:[[d.length,'Entries'],[d.reduce((a,{r})=>a+r.count,0).toLocaleString(),'Sheets slit'],[d.reduce((a,{r,k})=>a+slitCalc(r,k).exp,0).toLocaleString(),'Expected production']],html:tbl(h,rows),csv:[h].concat(rows)}});
 
 /* 3 Production report */
-VIEWS.rprod=()=>rep('Production report','Production entries with man power efficiency, FG, SFG and scrap. The summary groups by job.',
- monSel(PROD)+fl('c','Component',selOpts(['CAN','BODY','LID','BOTTOM','TAGGER'],'All'))+fl('j','Job Name',selOpts(jmJobs(),'All jobs'))+fl('s','Job Spec',selOpts(jmSpecs(''),'All specs')),
- ()=>{const d=PROD.filter(r=>(!$('#m').value||r.date.slice(0,7)===$('#m').value)&&(!$('#c').value||r.comp===$('#c').value)&&(!$('#j').value||r.job===$('#j').value)&&(!$('#s').value||r.spec===$('#s').value));
+let RPM='CAN';
+VIEWS.rprod=()=>{rep('Production report',RPM==='CAN'?'CAN production entries with man power efficiency, FG, SFG and scrap. The summary groups by job.':'Component production entries (Body, Lid, Bottom, Tagger) with man power efficiency and scrap. The summary groups by job.',
+ `<div class="seg"><button class="${RPM==='CAN'?'on':''}" id="mc">CAN</button><button class="${RPM==='CAN'?'':'on'}" id="mo">Components</button></div>`+monSel(PROD)+(RPM==='CAN'?'':fl('c','Component',selOpts(['BODY','LID','BOTTOM','TAGGER'],'All components')))+fl('j','Job Name',selOpts(jmJobs(),'All jobs'))+fl('s','Job Spec',selOpts(jmSpecs(''),'All specs')),
+ ()=>{const d=PROD.filter(r=>(!$('#m').value||r.date.slice(0,7)===$('#m').value)&&(RPM==='CAN'?r.comp==='CAN':r.comp!=='CAN'&&(!$('#c').value||r.comp===$('#c').value))&&(!$('#j').value||r.job===$('#j').value)&&(!$('#s').value||r.spec===$('#s').value));
   const rows=d.map(r=>{const e=expMP(r),ef=r.mp&&e?e/r.mp:0;return [r.date,esc(r.colour||''),esc(r.vendor),esc(r.variant||''),esc(r.shape||''),esc(r.job),esc(r.spec),r.comp,(+r.actual).toLocaleString(),r.mp,r.hrs,e||'',e?tg(ef>=1?'ok':ef>=.8?'warn':'bad',(ef*100).toFixed(0)+'%'):'',r.fg||'',r.sfg||'',r.scrap||'']});
   const h=['Date','Colour','Vendor','Variant','Shape','Job Name','Job Spec','Component','Actual','Man power','Hours','Expected MP','Efficiency','FG','SFG','Scrap'];
   const by={};d.forEach(r=>{const b=by[r.job]=by[r.job]||{a:0,s:0,mp:0,e:0};b.a+=+r.actual;b.s+=+r.scrap||0;b.mp+=+r.mp||0;b.e+=expMP(r)});
   const sum=tbl(['Job Name','Actual','Scrap','Man power','Expected MP','Efficiency'],Object.keys(by).map(j=>[esc(j),by[j].a.toLocaleString(),by[j].s,by[j].mp,by[j].e||'',by[j].e&&by[j].mp?(by[j].e/by[j].mp*100).toFixed(0)+'%':'']));
   return {kp:[[d.length,'Entries'],[d.reduce((a,r)=>a+(+r.actual),0).toLocaleString(),'Actual production'],[d.reduce((a,r)=>a+(+r.scrap||0),0),'Scrap Nos']],html:tbl(h,rows)+'<h3 style="margin-top:14px">Summary by job</h3>'+sum,csv:[h].concat(rows.map(r=>r.map(x=>String(x).replace(/<[^>]*>/g,''))))}});
+ $('#mc').onclick=()=>{RPM='CAN';VIEWS.rprod()};$('#mo').onclick=()=>{RPM='COMP';VIEWS.rprod()}};
 
 /* 4 Scrap report */
 VIEWS.rscrap=()=>rep('Scrap report','Scrap kg and component counts by job. Counts use the Job Master weights.',
