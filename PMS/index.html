@@ -385,7 +385,7 @@ const EDITWHO={so:'SCM',inward:'SCM',outward:'SCM',scrap:'SCM',carton:'SCM',slit
 const EXK={so:'scm',inward:'scm',outward:'scm',scrap:'scm',carton:'scm',cstock:'scm',astock:'scm',skids:'scm',rscrap:'scm',slitting:'prod',production:'prod',rslit:'prod',rprod:'prod',daily:'prod',rman:'all',inventory:'all',recon:'all',boxreg:'all',masters:'all',quality:'all',jobcalc:'all'};
 const EXWHO={scm:'SCM, Manager and Administrator',prod:'Production, Manager and Administrator',all:'Manager and Administrator'};
 const canEx=k=>pcan('export_all')||pcan('export_'+k);
-let ACCP={};const tabA=(t,k)=>{const a=ACCP[t];return !a||a[k]!==false};
+let MODE='LITE';let ACCP={};const tabA=(t,k)=>{const a=ACCP[t];return !a||a[k]!==false};
 function gateView(){const m=document.getElementById('main');if(!m)return;const v=VIEW,ep=EDITP[v];
  if(ep&&(!pcan(ep)||!tabA(v,'e'))){m.querySelectorAll('#en,#pv,#demo,#sv,#sv2,[data-e],[data-ed],[data-del],[data-rm]').forEach(x=>x.style.display='none');m.querySelectorAll('[data-f],[data-j]').forEach(x=>x.disabled=true);
   const fl=m.querySelector('#fl');if(fl&&fl.parentElement)fl.parentElement.style.display='none';
@@ -441,13 +441,19 @@ function showLogin(msg){$('#app').innerHTML=`<div class="login-wrap"><div class=
 <button class="b" id="go">${I('inn')||''} Log in</button>${msg?`<div class="msg err">${esc(msg)}</div>`:''}</div></div>`;
  const go2=async()=>{const {error}=await sb.auth.signInWithPassword({email:(v=>v.split('@')[0].replace(/\s/g,'').toLowerCase()+'@classicpack.com')($('#em').value.trim()),password:$('#pw').value});if(error)return showLogin(error.message);start()};
  $('#go').onclick=go2;$('#pw').onkeydown=e=>{if(e.key==='Enter')go2()}}
+const MODE_CSS=document.createElement('style');MODE_CSS.textContent='.modesw{display:inline-flex;border:1px solid var(--gold,#c9a24a);border-radius:999px;overflow:hidden}.modesw button{border:0;background:transparent;color:var(--lt,#9fb3cf);font-weight:700;font-size:11px;letter-spacing:.08em;padding:5px 12px;cursor:default}.modesw button.on{background:var(--gold,#c9a24a);color:#0b1f3a}.modesw.adm button{cursor:pointer}.modesw.adm button:not(.on):hover{background:rgba(201,162,74,.18)}';document.head.appendChild(MODE_CSS);
+function bindMode(){const w=document.getElementById('modesw');if(!w)return;const adm=pcan('access_edit');if(adm)w.classList.add('adm');
+ w.querySelectorAll('button').forEach(b=>b.onclick=async()=>{if(!adm)return toast('Only the Administrator can change the mode.',true);const m=b.dataset.m;if(m===MODE)return;
+  if(!confirm('Switch the whole PMS to '+m+'?'+(m==='ULTRA'?'\n\nULTRA adds Sale Order matching to Inward and Dispatch for everyone.':'\n\nLITE hides the Sale Order matching. Nothing is deleted.')))return;
+  try{await R('mode_set',{p_mode:m});MODE=m;w.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.m===MODE));toast('Mode is now '+MODE+'. Reloading screen...');setTimeout(()=>go(VIEW),400)}catch(e){toast(cleanErr(e.message),true)}})}
 async function start(){const {data:s}=await sb.auth.getSession();if(!s.session)return showLogin();
  const {data,error}=await C('me');if(error)return showLogin(cleanErr(error.message));
  if(!data||!data.active)return showLogin('This login is not registered. Ask the Administrator.');
  ME=data;if(!ME.roles||!ME.roles.pms)return showLogin('No PMS access for this login. Ask the Administrator.');
  try{await hydrate()}catch(e){return showLogin('Could not load data: '+cleanErr(e.message))}
  try{const r=await R('tab_access_get');ACCP=(r&&r.data)||{}}catch(e){ACCP={}}
- shell();$('#lo').onclick=async()=>{await sb.auth.signOut();ME=null;showLogin()};
+ try{const m=await R('mode_get');MODE=(m&&m.data&&m.data.mode)==='ULTRA'?'ULTRA':'LITE'}catch(e){MODE='LITE'}
+ shell();bindMode();$('#lo').onclick=async()=>{await sb.auth.signOut();ME=null;showLogin()};
  go(location.hash==='#so'?'so':location.hash==='#inward'?'inward':'status')}
 function newJobModal(cb){const m=modal(`<h2>Add new job / job spec</h2><div class="mut">Creates the job; Quality completes its Job Master details later.</div><div class="fg" style="margin-top:8px">
  <label>Vendor<input id="nv" list="nvl"></label><datalist id="nvl">${Object.keys(MOCK.vendors).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
@@ -511,7 +517,7 @@ function navReveal(v){const g=(GROUPS.find(x=>x[1].some(t=>t[0]===v))||[])[0];if
 function shell(){
  $('#app').innerHTML=`<div class="layout"><aside><div class="brand"><img src="${BRAND}"><div><b>CP PMS</b><span>Classic Pack Pvt Ltd</span></div></div>
  <nav>${GROUPS.map(([g,a])=>[g,a.filter(t=>(t[0]!=='tracking'||pcan('tracking_edit'))&&(t[0]!=='backdate'||pcan('backdate_review'))&&(t[0]!=='importx'||pcan('rules_edit'))&&(t[0]!=='users'||(ME?.permissions?.core||[]).includes('manage_users'))&&tabA(t[0],'v')&&(t[0]!=='access'||pcan('access_edit')))]).map(([g,a])=>`<div class="ngrp" data-g="${g}"><span>${g}</span><i>▾</i></div><div class="gbody" data-g="${g}">`+a.map(t=>`<button data-v="${t[0]}" title="${t[1]}"><span class="tile">${NAV[NAVMAP[t[0]]]}</span><span class="lb">${t[1]}</span></button>`).join('')+'</div>').join('')}</nav><div class="side-foot"><span class="rl">Role: <b style="color:var(--gold2)">${esc((ME&&ME.roles&&ME.roles.pms)?((({admin:'Administrator',manager:'Manager',hr:'HR & Admin',scm:'SCM',production:'Production',quality:'Quality',data_entry:'Data Entry',accounts:'Accounts'}))[ME.roles.pms]||ME.roles.pms):"")}</b></span><button id="lo">${I('logout')} <span>Log out</span></button></div></aside>
- <div class="content"><div class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="menu" id="mn" title="Expand / collapse menu">${I('menu')}</button><h1 id="ttl"></h1></div><div class="who"><div class="av">${esc((ME&&ME.full_name||"?")[0].toUpperCase())}</div><div>${esc(ME&&ME.full_name||"")}</div></div></div><main id="main"></main></div></div>`;
+ <div class="content"><div class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="menu" id="mn" title="Expand / collapse menu">${I('menu')}</button><h1 id="ttl"></h1></div><div class="who"><div class="modesw" id="modesw" title="${pcan('access_edit')?'Administrator: click LITE or ULTRA to switch for everyone':'Mode is set by the Administrator'}"><button data-m="LITE" class="${MODE==='LITE'?'on':''}">LITE</button><button data-m="ULTRA" class="${MODE==='ULTRA'?'on':''}">ULTRA</button></div><div class="av">${esc((ME&&ME.full_name||"?")[0].toUpperCase())}</div><div>${esc(ME&&ME.full_name||"")}</div></div></div><main id="main"></main></div></div>`;
  document.querySelectorAll('aside nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
  navApply();document.querySelectorAll('aside nav .ngrp').forEach(h=>h.onclick=()=>{const o=navOpen();const g=h.dataset.g;if(o.has(g))o.delete(g);else o.add(g);navSave(o);navApply()});
  $('#mn').onclick=()=>{sideCollapsed=!sideCollapsed;document.body.classList.toggle('sc',sideCollapsed)}}
