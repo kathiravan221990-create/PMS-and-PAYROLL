@@ -563,7 +563,11 @@ function openPortal(p){
  if(!url)return toast('Link not set yet - the Administrator can add it in Portal Links');
  runLoading('Welcome To '+linkOf(p).title,'Loading',700,()=>{
   let u=url;try{const x=new URL(url,location.href);x.searchParams.set('v',String(Math.floor(Date.now()/300000)));u=x.toString()}catch(e){}
-  $('#portal-frame').src=u;show('portal')})}
+  const fr=$('#portal-frame');let done=false;const t0=Date.now();
+  const reveal=()=>{if(done)return;done=true;fr.onload=null;show('portal')};
+  fr.onload=()=>setTimeout(reveal,Math.max(0,900-(Date.now()-t0)));
+  setTimeout(reveal,15000);
+  show('loading');fr.src=u})}
 $('#btnHomeFromPortal').onclick=()=>runLoading('Loading Home','Loading',900,()=>{$('#portal-frame').removeAttribute('src');show('home')});
 // ---------- entry animation ----------
 const entryEl=$('#entry');let entryTimers=[];
