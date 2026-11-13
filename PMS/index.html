@@ -375,6 +375,19 @@ function track(p){_busy++;clearTimeout(_lt);_lt=setTimeout(()=>{const l=document
 const C=(fn,a)=>track(sb.schema('core_api').rpc(fn,a||{}));
 const R=(fn,a)=>track(sb.schema('pms_api').rpc(fn,a||{}));
 const pcan=p=>(ME?.permissions?.pms||[]).includes(p);
+// Everyone with a PMS login can VIEW every tab. Who can EDIT a tab, and who can DOWNLOAD from it, depends on the department.
+const EDITP={so:'so_drop',inward:'inward_enter',outward:'outward_enter',scrap:'scrap_enter',carton:'ledger_enter',slitting:'slitting_enter',production:'production_enter',masters:'matrix_edit',quality:'jobmaster_edit',jobcalc:'jobmaster_edit'};
+const EDITWHO={so:'SCM',inward:'SCM',outward:'SCM',scrap:'SCM',carton:'SCM',slitting:'Production',production:'Production',masters:'Manager and Administrator',quality:'Quality, Manager and Administrator',jobcalc:'Quality, Manager and Administrator'};
+const EXK={so:'scm',inward:'scm',outward:'scm',scrap:'scm',carton:'scm',cstock:'scm',astock:'scm',skids:'scm',rscrap:'scm',slitting:'prod',production:'prod',rslit:'prod',rprod:'prod',daily:'prod',rman:'all',inventory:'all',recon:'all',boxreg:'all',masters:'all',quality:'all',jobcalc:'all'};
+const EXWHO={scm:'SCM, Manager and Administrator',prod:'Production, Manager and Administrator',all:'Manager and Administrator'};
+const canEx=k=>pcan('export_all')||pcan('export_'+k);
+function gateView(){const m=document.getElementById('main');if(!m)return;const v=VIEW,ep=EDITP[v];
+ if(ep&&!pcan(ep)){m.querySelectorAll('#en,#pv,#demo,#sv,#sv2,[data-e],[data-ed],[data-del],[data-rm]').forEach(x=>x.style.display='none');m.querySelectorAll('[data-f],[data-j]').forEach(x=>x.disabled=true);
+  const fl=m.querySelector('#fl');if(fl&&fl.parentElement)fl.parentElement.style.display='none';
+  if(!m.querySelector('.ro-note')){const c=m.querySelector('.card');if(c)c.insertAdjacentHTML('afterbegin','<div class="mut ro-note" style="margin-bottom:8px;color:#f0cf6a">View only. Editing here is for '+EDITWHO[v]+'.</div>')}}
+ const ek=EXK[v];if(ek&&!canEx(ek)){m.querySelectorAll('#ex').forEach(x=>x.style.display='none');
+  if(!m.querySelector('.ex-note')&&m.querySelector('.card')){const c=m.querySelector('.card');c.insertAdjacentHTML('beforeend','<div class="mut ex-note" style="margin-top:6px">Download is for '+EXWHO[ek]+'.</div>')}}}
+let _mo=null;
 let TODAY=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
 let EDIT_DAYS=7;let MXID={},MM_DIRTY=new Set();
 const SAMPLE_VIEWS=[];let ATT_ROW={};
@@ -446,7 +459,7 @@ function newJobModal(cb){const m=modal(`<h2>Add new job / job spec</h2><div clas
 let STOCK_BASE_LIVE=null;
 const NAVMAP={users:'users',status:'status',so:'invoice',inward:'employees',outward:'register',scrap:'revisions',quality:'status',carton:'otherpay',slitting:'attendance',production:'dashboard',manpower:'users',skids:'photos',inventory:'months',daily:'slip',recon:'pfesi',datalog:'shifts',masters:'contractors',rules:'rulebook',rulebook:'rulebook',importx:'otherpay',tracking:'otherpay',backdate:'revisions',rscrap:'revisions',rslit:'attendance',rprod:'dashboard',rman:'users',jobcalc:'billing',boxreg:'register',cstock:'otherpay',astock:'otherpay'};
 const TITLES={users:'Users & Roles',rulebook:'Rules book',importx:'Import Excel',so:'Sale Order',inward:'Inward',outward:'Outward',scrap:'Scrap entry',quality:'Job Master',carton:'Carton & Alum/Tape entry',slitting:'Slitting',production:'Production',manpower:'Manpower',skids:'Skid details',inventory:'Inventory',daily:'Daily production report',recon:'Production vs Dispatch',datalog:'Data log',status:'Status check',masters:'Man Power Matrix',rules:'Rules',tracking:'Stock tracking',backdate:'Back-date review',rscrap:'Scrap report',rslit:'Slitting report',rprod:'Production report',rman:'Manpower report',jobcalc:'Job Calculator',boxreg:'Box Register',cstock:'Carton stock',astock:'Alum & Tape stock'};
-const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['SETTINGS',[['masters','Man Power Matrix'],['tracking','Stock tracking'],['backdate','Back-date review'],['importx','Import Excel'],['rulebook','Rules book'],['rules','Rules']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register'],['cstock','Carton stock'],['astock','Alum & Tape stock']]]];
+const GROUPS=[['STATUS',[['status','Status check']]],['SCM',[['so','Sale Order'],['inward','Inward'],['outward','Outward'],['scrap','Scrap'],['carton','Carton & Alum/Tape'],['cstock','Carton stock'],['astock','Alum & Tape stock']]],['QUALITY',[['quality','Job Master'],['jobcalc','Job Calculator']]],['PRODUCTION',[['slitting','Slitting'],['production','Production']]],['SETTINGS',[['masters','Man Power Matrix'],['tracking','Stock tracking'],['backdate','Back-date review'],['importx','Import Excel'],['rulebook','Rules book'],['rules','Rules']]],['REPORTS',[['skids','Skid details'],['rslit','Slitting report'],['rprod','Production report'],['rman','Manpower report'],['inventory','Inventory'],['daily','Daily production report'],['recon','Production vs Dispatch'],['rscrap','Scrap report'],['boxreg','Box Register']]]];
 let THRESH=50;
 // delete an entry from a list: confirm first, some rows are protected (guard returns the reason)
 const bindDel=(list,key,what,label,after,guard)=>document.querySelectorAll('[data-del]').forEach(a=>a.onclick=()=>{
@@ -497,7 +510,7 @@ function shell(){
  document.querySelectorAll('aside nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
  navApply();document.querySelectorAll('aside nav .ngrp').forEach(h=>h.onclick=()=>{const o=navOpen();const g=h.dataset.g;if(o.has(g))o.delete(g);else o.add(g);navSave(o);navApply()});
  $('#mn').onclick=()=>{sideCollapsed=!sideCollapsed;document.body.classList.toggle('sc',sideCollapsed)}}
-function go(v){VIEW=v;navReveal(v);document.querySelectorAll('aside nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('#ttl').innerHTML=I('open')+' '+TITLES[v];(VIEWS[v]||VIEWS.soon)();if(SAMPLE_VIEWS.includes(v)){const m=$('#main');if(m)m.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#e0b53a"><b style="color:#f0cf6a">Sample data</b> <span class="mut">This screen is not connected to the live database yet. Changes here are not saved.</span></div>')}}
+function go(v){VIEW=v;navReveal(v);document.querySelectorAll('aside nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('#ttl').innerHTML=I('open')+' '+TITLES[v];(VIEWS[v]||VIEWS.soon)();try{if(_mo)_mo.disconnect();const mm=$('#main');if(mm){_mo=new MutationObserver(()=>gateView());_mo.observe(mm,{childList:true,subtree:true});gateView()}}catch(e){}if(SAMPLE_VIEWS.includes(v)){const m=$('#main');if(m)m.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#e0b53a"><b style="color:#f0cf6a">Sample data</b> <span class="mut">This screen is not connected to the live database yet. Changes here are not saved.</span></div>')}}
 const VIEWS={};
 VIEWS.soon=()=>{$('#main').innerHTML=`<div class="card"><h2>${TITLES[VIEW]}</h2><div class="mut">Layout comes in the next batch.</div></div>`};
 
@@ -1258,7 +1271,7 @@ function exportTable(name,sel){const t=document.querySelector(sel||'#el table');
  const ai=hdr.indexOf('Actions'),rm=r=>ai<0?r:r.filter((_,i)=>i!==ai);
  const data=body.filter(r=>r.cells.length>2).map(r=>rm([...r.cells].map(c=>c.innerText.replace(/\s+/g,' ').trim())));
  dlcsv(name+'_'+TODAY,[rm(hdr),...data]);toast(data.length+' rows exported')}
-const dlcsv=(n,rows)=>{const c='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download=n+'.csv';a.click()};
+const dlcsv=(n,rows)=>{if(EXK[VIEW]&&!canEx(EXK[VIEW]))return toast('Download is for '+EXWHO[EXK[VIEW]]+'.',true);const c='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download=n+'.csv';a.click()};
 const uniq=(a,f)=>[...new Set(a.map(f).filter(Boolean))].sort();
 const jmJobs=()=>[...new Set((JM||[]).map(j=>j.job))].sort(), jmSpecs=job=>[...new Set((JM||[]).filter(j=>!job||j.job===job).map(j=>j.spec))].sort();
 const selOpts=(a,all)=>`<option value="">${all}</option>`+a.map(x=>`<option>${esc(x)}</option>`).join('');
