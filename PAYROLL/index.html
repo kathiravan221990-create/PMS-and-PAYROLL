@@ -1033,7 +1033,7 @@ VIEWS.otherpay=async()=>{
 
 /* ===== users ===== */
 VIEWS.users=async()=>{const [us,ds]=await Promise.all([call(C('users_list')),call(C('departments_list'))]);
- const roles=[['admin','Administrator'],['manager','Manager'],['hr','HR']],rn=c=>(roles.find(r=>r[0]===c)||[c,c||'—'])[1];
+ const roles=[['admin','Administrator'],['manager','Manager'],['hr','HR & Admin']],rn=c=>(roles.find(r=>r[0]===c)||[c,c||'—'])[1];
  const gen=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';let s='';const r=new Uint32Array(10);crypto.getRandomValues(r);r.forEach(v=>s+=a[v%a.length]);return s};
  const inv=async b=>{const {data,error}=await sb.functions.invoke('create-user',{body:b});if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(_){}throw new Error(m)}if(data?.error)throw new Error(data.error);return data};
  const ro=sel=>roles.map(r=>`<option value="${r[0]}" ${r[0]===sel?'selected':''}>${r[1]}</option>`).join('');
