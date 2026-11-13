@@ -434,6 +434,7 @@
     <div class="login-sub">Unified Operations Portal</div>
     <form id="loginForm" autocomplete="off">
       <div class="field"><label for="uname">Username</label><input id="uname" type="text" placeholder="Enter your username" autocomplete="username" autocapitalize="off" required></div>
+      <div class="field" id="deptShowField"><label for="deptShow">Department</label><input id="deptShow" type="text" value="" placeholder="Filled automatically after sign-in" readonly tabindex="-1"></div>
       <div class="field"><label for="pwd">Password</label><input id="pwd" type="password" placeholder="Enter your password" autocomplete="current-password" required></div>
       <div id="loginError" class="login-error">Incorrect username or password. Please try again.</div>
       <button type="submit" class="btn-primary">Sign In</button>
@@ -532,7 +533,7 @@ let ME=null,LINKS=[];
 const role=r=>ME&&ME.roles&&ME.roles[r];
 const perm=(m,p)=>ME&&ME.permissions&&(ME.permissions[m]||[]).includes(p);
 const isAdmin=()=>role('core')==='admin';
-const RN={admin:'Administrator',manager:'Manager',hr:'HR',scm:'SCM',production:'Production',quality:'Quality',data_entry:'Data Entry',accounts:'Accounts'};
+const RN={admin:'Administrator',manager:'Manager',hr:'HR & Admin',scm:'SCM',production:'Production',quality:'Quality',data_entry:'Data Entry',accounts:'Accounts'};
 const AN={pms:'PMS',payroll:'Payroll',cost:'Cost per Tin'};
 function roleLabel(){if(!ME)return '';const r=ME.roles||{};const p=['pms','payroll','cost'].filter(m=>r[m]).map(m=>AN[m]+': '+(RN[r[m]]||r[m]));if(isAdmin())return p.length?'Administrator · '+p.join(' · '):'Administrator';return p.join(' · ')||((ME.department&&ME.department.name)||'')}
 const myDept=()=>String((ME&&ME.department&&ME.department.code)||'').toUpperCase();
@@ -605,12 +606,35 @@ function pwDialog(forced){return new Promise(res=>{
   const d=await C('password_done');if(d.error){er.textContent=cleanErr(d.error.message);er.classList.add('show');return}
   if(ME)ME.must_change_password=false;m.classList.remove('show');toast('Password changed');res()}})}
 $('#btnChPw').onclick=()=>pwDialog(false);
+// ---------- eye icon on password fields (same as NEXUS) ----------
+const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  function addEyeToggle(input){
+    const wrap = document.createElement('div');
+    wrap.className = 'pw-wrap';
+    if(input.parentNode) input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pw-eye'; b.tabIndex = -1;
+    b.setAttribute('aria-label', 'Show password'); b.title = 'Show / hide password'; b.innerHTML = EYE_ON;
+    b.addEventListener('click', function(){
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      b.innerHTML = show ? EYE_OFF : EYE_ON;
+      b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    });
+    if(input.form) input.form.addEventListener('reset', function(){ input.type = 'password'; b.innerHTML = EYE_ON; });
+    wrap.appendChild(b);
+    return wrap;
+  }
+addEyeToggle(document.getElementById('pwd'));['pwNew','pwNew2'].forEach(id=>{const x=document.getElementById(id);if(x)addEyeToggle(x)});
 $('#loginForm').onsubmit=async ev=>{ev.preventDefault();const e=$('#loginError');e.classList.remove('show');
  const u=$('#uname').value.trim().split('@')[0].replace(/\s/g,'').toLowerCase();
  const {error}=await sb.auth.signInWithPassword({email:u+'@classicpack.com',password:$('#pwd').value});
  if(error){e.textContent='Incorrect username or password. Please try again.';e.classList.add('show');return}
+ try{const mr=await C('me');if(mr.data&&mr.data.department)$('#deptShow').value=mr.data.department.name||''}catch(_){}
  $('#pwd').value='';afterLogin(true)};
-$('#btnLogout').onclick=async()=>{await sb.auth.signOut();ME=null;$('#portal-frame').removeAttribute('src');show('login')};
+$('#btnLogout').onclick=async()=>{await sb.auth.signOut();ME=null;$('#deptShow').value='';$('#portal-frame').removeAttribute('src');show('login')};
 // ---------- IP Security ----------
 async function ipsOpen(){
  const {data,error}=await C('allowed_ips_list');if(error)return toast(cleanErr(error.message));
@@ -623,7 +647,7 @@ async function ipsOpen(){
  $('#ipAdd').onclick=()=>add($('#ipVal').value.trim(),$('#ipLabel').value.trim());$('#ipMine').onclick=()=>{$('#ipVal').value=my;if(!$('#ipLabel').value)$('#ipLabel').value='My IP'}}
 $('#ipsecClose').onclick=()=>$('#ipsecModal').classList.remove('show');
 // ---------- Portal Links ----------
-const DEPTS=[['HR','HR'],['PRODUCTION','Production'],['SCM','SCM'],['MANAGER','Manager'],['ADMIN','Administrator']];
+const DEPTS=[['HR','HR & Admin'],['PRODUCTION','Production'],['SCM','SCM'],['MANAGER','Manager'],['ADMIN','Administrator']];
 async function linksOpen(){
  await loadLinks();
  const rows=PORTALS.map(p=>{const o=linkOf(p);const l=LINKS.find(x=>x.code===p.id);return {code:p.id,title:o.title,url:o.url,active:o.active,depts:(l&&l.depts)||[]}}).concat(LINKS.filter(l=>!PORTALS.some(p=>p.id===l.code)).map(l=>({code:l.code,title:l.title,url:l.url,active:l.active!==false,depts:l.depts||[]})));
@@ -656,7 +680,7 @@ $('#plinksClose').onclick=()=>$('#plinksModal').classList.remove('show');
 // ---------- Users & Roles ----------
 const APPS=[
  {m:'pms',label:'PMS / Quality',roles:[['scm','SCM'],['production','Production'],['quality','Quality'],['hr','HR & Admin'],['manager','Manager'],['admin','Administrator']]},
- {m:'payroll',label:'CP PAYROLL',roles:[['admin','Administrator'],['manager','Manager'],['hr','HR']]},
+ {m:'payroll',label:'CP PAYROLL',roles:[['admin','Administrator'],['manager','Manager'],['hr','HR & Admin']]},
  {m:'cost',label:'COST PER TIN',roles:[['manager','Manager'],['admin','Administrator'],['accounts','Accounts']]}];
 function genPw(){const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';let s='';const r=new Uint32Array(10);crypto.getRandomValues(r);r.forEach(v=>s+=a[v%a.length]);return s}
 const invokeUser=async b=>{const {data,error}=await sb.functions.invoke('create-user',{body:b});if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(_){}throw new Error(m)}if(data&&data.error)throw new Error(data.error);return data};
