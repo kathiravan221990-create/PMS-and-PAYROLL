@@ -202,13 +202,16 @@ VIEWS.dash=async function(){
    else if(t.state==='incomplete')sv+=`<rect x="${x+j*(bw+1)}" y="${H-40}" width="${bw}" height="40" fill="none" stroke="${YC[j%4]}" stroke-dasharray="3 2"/>`});
    sv+=`<text x="${x+bw}" y="${H+12}" font-size="8" fill="#aebbd8" text-anchor="middle">${MON[(ix+3)%12]}</text>`});
   sv+=`<line x1="5" x2="425" y1="${H}" y2="${H}" stroke="#3a5694"/></svg>`;
+  if(DS.mon!=='all'){const mx2=Math.max(1.6,...tv.map(x=>x||0))*1.15,bw2=60,gap=Math.min(110,400/cmpYears.length);
+   sv=`<svg viewBox="0 0 430 ${H+30}" style="width:100%;height:auto">`+tv.map((v,j)=>{const x=30+j*gap+(gap-bw2)/2,h=(v||0)/mx2*H;
+    return (v!=null?`<rect x="${x}" y="${H-h}" width="${bw2}" height="${h}" fill="${YC[j%4]}"/><text x="${x+bw2/2}" y="${H-h-5}" font-size="11" font-weight="600" fill="#e3e9f5" text-anchor="middle">${pt(v)}</text>`:`<rect x="${x}" y="${H-45}" width="${bw2}" height="45" fill="none" stroke="${YC[j%4]}" stroke-dasharray="3 2"/><text x="${x+bw2/2}" y="${H-20}" font-size="8" fill="#f0cf6a" text-anchor="middle">Incomplete</text>`)+`<text x="${x+bw2/2}" y="${H+14}" font-size="9" fill="#aebbd8" text-anchor="middle">${FYL(cmpYears[j])}</text>`}).join('')+`<line x1="20" x2="425" y1="${H}" y2="${H}" stroke="#3a5694"/></svg>`}
   const leg=`<div class="note">${cmpYears.map((y,j)=>`<span style="color:${YC[j%4]}">■</span> ${FYL(y)}`).join(' &nbsp;')} &nbsp;Dashed = Incomplete</div>`;
   const cm=Math.max(0.01,...ds.flatMap(d=>d.rows.map(r=>r.cy_per_tin||0))),tmx=Math.max(0.01,...tv.map(x=>x||0));
   const hb=(l,vals,m,sep)=>`<div style="display:grid;grid-template-columns:90px 1fr;gap:6px;align-items:center;margin:3px 0;${sep?'border-top:1px dashed #8a6f2e;padding-top:5px;margin-top:6px':''}"><span>${l}</span><div>${vals.map((v,j)=>`<div style="display:flex;align-items:center;gap:4px;margin-top:1px"><div style="height:7px;width:${v==null?0:Math.max(1,v/m*85)}%;background:${YC[j%4]}"></div><small>${pt(v)}</small></div>`).join('')}</div></div>`;
   const hbars=hb('<b>Total expenses</b>',tv,tmx,false)+cats.map((c,i)=>hb(CAT[c],ds.map(d=>d.rows[i].cy_per_tin),cm,i===0)).join('');
   const inc=[];ds.forEach((d,j)=>{const l=d.trend.filter(trendIdx).filter(t=>t.state==='incomplete').map(t=>MON[+t.month.slice(5,7)-1]);if(l.length)inc.push(FYL(cmpYears[j])+': '+l.join(', '))});
   $('#main').innerHTML=pick+`<h3>Comparison: ${scopeName()}</h3>${inc.length&&DS.mon==='all'?`<div class="warn">Months left out (incomplete): ${inc.join(' | ')}. Totals count complete months only.</div>`:''}<table>${head}${body}${totr}</table>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><h3>Cost per tin by month</h3>${sv}${leg}</div><div><h3>Cost per tin by category</h3>${hbars}</div></div>`;
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><h3>${DS.mon!=='all'?'Total cost per tin by year':'Cost per tin by month'}</h3>${sv}${leg}</div><div><h3>Cost per tin by category</h3>${hbars}</div></div>`;
   wire();return;
  }
  /* ---------- single date ---------- */
