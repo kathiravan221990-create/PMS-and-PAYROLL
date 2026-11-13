@@ -385,7 +385,7 @@ const EDITWHO={so:'SCM',inward:'SCM',outward:'SCM',scrap:'SCM',carton:'SCM',slit
 const EXK={so:'scm',inward:'scm',outward:'scm',scrap:'scm',carton:'scm',cstock:'scm',astock:'scm',skids:'scm',rscrap:'scm',slitting:'prod',production:'prod',rslit:'prod',rprod:'prod',daily:'prod',rman:'all',inventory:'all',recon:'all',boxreg:'all',masters:'all',quality:'all',jobcalc:'all'};
 const EXWHO={scm:'SCM, Manager and Administrator',prod:'Production, Manager and Administrator',all:'Manager and Administrator'};
 const canEx=k=>pcan('export_all')||pcan('export_'+k);
-let MODE='LITE',SKT={},JOBDEF={};async function loadUltra(){try{SKT=(await R('skid_order_types')).data||{};JOBDEF=(await R('job_default_types')).data||{}}catch(e){SKT={};JOBDEF={}}}let ACCP={};const tabA=(t,k)=>{const a=ACCP[t];return !a||a[k]!==false};
+let MODE='LITE',SKT={},JOBDEF={},OUTA={},OUTT={};async function loadUltra(){try{SKT=(await R('skid_order_types')).data||{};JOBDEF=(await R('job_default_types')).data||{};const oi=(await R('outward_ultra_info')).data||{};OUTA=oi.alloc||{};OUTT=oi.types||{}}catch(e){SKT={};JOBDEF={};OUTA={};OUTT={}}}let ACCP={};const tabA=(t,k)=>{const a=ACCP[t];return !a||a[k]!==false};
 function gateView(){const m=document.getElementById('main');if(!m)return;const v=VIEW,ep=EDITP[v];
  if(ep&&(!pcan(ep)||!tabA(v,'e'))){m.querySelectorAll('#en,#pv,#demo,#sv,#sv2,[data-e],[data-ed],[data-del],[data-rm]').forEach(x=>x.style.display='none');m.querySelectorAll('[data-f],[data-j]').forEach(x=>x.disabled=true);
   const fl=m.querySelector('#fl');if(fl&&fl.parentElement)fl.parentElement.style.display='none';
@@ -410,8 +410,8 @@ new MutationObserver(()=>{const m=document.getElementById('main');if(!m)return;c
  box.innerHTML='<b style="color:#f0cf6a">Back-dated entry<span id="bdn"></span></b><div class="mut" id="bdmsg" style="margin:4px 0"></div><label>Reason for back-dating<input id="bdr" placeholder="e.g. Power cut on that day, entry written on paper"></label>';
  card.appendChild(box);d.addEventListener('change',bdCheck);d.addEventListener('input',bdCheck);bdCheck()}).observe(document.documentElement,{childList:true,subtree:true});
 async function saveLive(fn,payload,view,again){if(payload.entry_date&&dayDiff(payload.entry_date)>EDIT_DAYS&&!pcan('edit_old')&&bdReason().length<5)return toast(cleanErr('backdate_reason_required'),true);
- payload.backdate_reason=bdReason();const {error}=await R(fn,{p:payload});if(error)return toast(cleanErr(error.message),true);toast('Saved');await hydrate();again?again():go(view)}
-async function delLive(kind,id){const {error}=await R('entry_delete',{p_kind:kind,p_id:id});if(error){toast(cleanErr(error.message),true);return false}await hydrate();return true}
+ payload.backdate_reason=bdReason();const {error}=await R(fn,{p:payload});if(error)return toast(cleanErr(error.message),true);toast('Saved');await hydrate();if(MODE==='ULTRA')await loadUltra();again?again():go(view)}
+async function delLive(kind,id){const {error}=await R('entry_delete',{p_kind:kind,p_id:id});if(error){toast(cleanErr(error.message),true);return false}await hydrate();if(MODE==='ULTRA')await loadUltra();return true}
 async function hydrate(){const {data:D,error}=await R('bootstrap');if(error){toast(cleanErr(error.message),true);throw error}
  STOCK_BASE_LIVE=D.baseline;
  MOCK.so=D.so;SKIDS=D.skids;PROD=D.prod;SCRAP=(D.scrap||[]).map(r=>({...r,wb:(r.wb||0)/1000,wl:(r.wl||0)/1000,wbt:(r.wbt||0)/1000,wbb:(r.wbb||0)/1000}));SLITS=D.slits;OUT=D.out;CLED=D.cled;ALED=D.aled;
@@ -800,7 +800,7 @@ VIEWS.outward=()=>{
   const _f=()=>OUT.filter(o=>dfOk(o.date)&&(!b||(b==='ok')===owCheck(o).ok)&&(!t||Object.values(o).join(' ').toLowerCase().includes(t)));MF=1;mfSync(_f());MF=0;const d=_f();
   $('#kp').innerHTML=`<div class="kpi"><div><b>${d.length}</b>Entries (selected)</div><div><b>${d.reduce((a,o)=>a+(+o.qty||0),0).toLocaleString()}</b>Dispatched Nos</div><div><b>${d.reduce((a,o)=>a+(+o.boxes||0),0).toLocaleString()}</b>Boxes</div><div><b>${d.filter(o=>!owCheck(o).ok).length}</b>Box check mismatches</div></div>`;
   $('#el').innerHTML=`<div class="scroll"><table><tr><th>Date</th><th>DC No</th><th>Invoice</th><th>Sale Order</th><th>Job ID</th><th>Colour</th><th>Vendor</th><th>Variant</th><th>Shape</th><th>Job Name</th><th>Job Spec</th><th>Boxes</th><th>Packing</th><th>Dispatch Nos</th><th>Box check</th><th>Vehicle</th><th>Actions</th></tr>
-  ${d.map(o=>{const c=owCheck(o);return `<tr><td>${o.date}</td><td>${esc(o.dc)}</td><td>${esc(o.invoice)}</td><td>${o.so||'<span class="tag">stock</span>'}</td><td>${o.jid}</td><td>${esc(o.colour||'')}</td><td>${esc(o.vendor)}</td><td>${esc(o.variant)}</td><td>${esc(o.shape||'')}</td><td>${esc(o.job)}</td><td>${esc(o.spec)}</td><td>${o.boxes}</td><td>${o.boxes}x${o.perbox}</td><td><b>${(+o.qty).toLocaleString()}</b></td>
+  ${d.map(o=>{const c=owCheck(o);return `<tr><td>${o.date}</td><td>${esc(o.dc)}</td><td>${esc(o.invoice)}</td><td>${MODE==='ULTRA'&&OUTA[o.id]?esc(OUTA[o.id].map(a=>a.so_no).join(', ')):(o.so||'<span class="tag">'+(MODE==='ULTRA'&&OUTT[o.id]?OUTT[o.id].toLowerCase():'stock')+'</span>')}</td><td>${o.jid}</td><td>${esc(o.colour||'')}</td><td>${esc(o.vendor)}</td><td>${esc(o.variant)}</td><td>${esc(o.shape||'')}</td><td>${esc(o.job)}</td><td>${esc(o.spec)}</td><td>${o.boxes}</td><td>${o.boxes}x${o.perbox}</td><td><b>${(+o.qty).toLocaleString()}</b></td>
   <td>${c.ok?'<span class="tag ok">OK</span>':`<span class="tag bad">${c.diff>0?'+':''}${c.diff.toLocaleString()}</span>`}</td><td>${esc(o.vehicle)}</td><td>${ib('eye','View',`data-e="${o.id}"`)}${ib('edit','Edit',`data-ed="${o.id}"`)}${ib('trash','Delete',`data-del="${o.id}"`,'bad')}</td></tr>`}).join('')}</table></div><div class="mut">${d.length} shown · Box check = Boxes × Qty per box compared with the dispatch quantity (should match)</div>`;
   bindDel(OUT,'id','Outward entry',x=>(x.job||'')+' on '+x.date,()=>VIEWS.outward());
   document.querySelectorAll('[data-e],[data-ed]').forEach(a=>a.onclick=()=>outForm(OUT.find(x=>x.id==(a.dataset.e||a.dataset.ed))))};
@@ -808,11 +808,11 @@ VIEWS.outward=()=>{
 function outForm(e,stock){const isNew=!e;stock=stock??(e?!e.so:false);
  $('#ttl').innerHTML=I('open')+' '+(isNew?'New Dispatch':'Edit Dispatch');
  const v=k=>esc(e?.[k]??'');
- const soNos=[...new Set(MOCK.so.map(r=>r.so))];const soOpts=soNos.map(n=>`<option ${e&&e.so===n?'selected':''}>${n}</option>`).join('');
+ const curT=e?OUTT[e.id]||'':'';const m0=curT==='REPAIR'?'repair':curT==='CONSOLE'?'console':(stock?'stock':'so');if(MODE==='ULTRA'&&(m0==='repair'||m0==='console'))stock=true;let AL=[];const soNos=[...new Set(MOCK.so.map(r=>r.so))];const soOpts=soNos.map(n=>`<option ${e&&e.so===n?'selected':''}>${n}</option>`).join('');
  const r0=MOCK.so.find(r=>e&&e.so===r.so&&e.variant===r.variant);
  $('#main').innerHTML=`<div class="row noprint" style="margin-bottom:12px"><button class="b l" id="bk">${bt('x','Back to outward')}</button></div>
- <div class="card"><h2>1. Source</h2><div class="row noprint" style="margin-bottom:8px"><label>Entry type<select id="mode"><option value="so" ${stock?'':'selected'}>With Sale Order</option><option value="stock" ${stock?'selected':''}>Stock (no Sale Order)</option></select></label></div>
-  <div class="fg" id="soBox" style="${stock?'display:none':''}"><label>Sale Order No<select id="so"><option value="">— pick Sale Order No —</option>${soOpts}</select></label>
+ <div class="card"><h2>1. Source</h2><div class="row noprint" style="margin-bottom:8px"><label>Entry type<select id="mode">${MODE==='ULTRA'?[['so','Regular - with Sale Order'],['repair','Repair (no Sale Order)'],['console','Console order (no Sale Order)'],['stock','Stock (no Sale Order)']].map(([k,l])=>`<option value="${k}" ${k===m0?'selected':''}>${l}</option>`).join(''):`<option value="so" ${stock?'':'selected'}>With Sale Order</option><option value="stock" ${stock?'selected':''}>Stock (no Sale Order)</option>`}</select></label></div>
+  <div class="fg" id="soBox" style="${stock?'display:none':''}">${MODE==='ULTRA'?'<div id="ufind" class="ufind" style="grid-column:1/-1"></div>':''}<label>Sale Order No<select id="so"><option value="">— pick Sale Order No —</option>${soOpts}</select></label>
    <label>Variant (from Sale Order)<select id="va"><option value="">— pick Sale Order first —</option></select></label>
    <label>Vendor (from Sale Order)<input id="ve" readonly value="${esc(r0?.vendor||'')}"></label><label>Colour (from Sale Order)<input id="col" readonly value="${esc(r0?.colour||'')}"></label>
    <label>Sale qty<input id="sq" readonly></label><label>Already dispatched<input id="sd" readonly></label><label>Pending qty<input id="pq" readonly></label><label>Pending after this dispatch<input id="pa" readonly></label></div>
@@ -833,7 +833,7 @@ function outForm(e,stock){const isNew=!e;stock=stock??(e?!e.so:false);
   <div id="warn"></div>
   <div class="row noprint" style="margin-top:14px"><button class="b g" id="sv2">${bt('save',isNew?'Save dispatch':'Save changes')}</button><button class="b l" id="cx">${bt('x','Cancel')}</button></div></div>`;
  const opt=(id,arr,ph,cur)=>{$(id).innerHTML=`<option value="">${ph}</option>`+arr.map(o=>`<option ${o===cur?'selected':''}>${esc(o)}</option>`).join('')};
- const st=()=>$('#mode').value==='stock';
+ const st=()=>$('#mode').value!=='so';
  const src=()=>{const s=st();return {ve:s?($('#sv').value==='__new'?$('#svn').value:$('#sv').value):$('#ve').value,va:s?($('#sva').value==='__new'?$('#svan').value:$('#sva').value):$('#va').value,co:s?$('#scol').value:$('#col').value}};
  const lines=()=>MOCK.so.filter(x=>x.so===$('#so').value);
  const calc=()=>{const s=src(),sh=$('#sh').value,j=$('#jb').value,p=$('#sp').value;const id=(sh&&j&&p&&s.ve&&s.va)?jobId(s.co,s.va,sh,s.ve,j,p):'';$('#jid').value=id||'—';
@@ -841,9 +841,9 @@ function outForm(e,stock){const isNew=!e;stock=stock??(e?!e.so:false);
   const b=+$('#bx').value,pb=+$('#pb').value,q=+$('#dq').value,pk=b*pb;$('#ps').value=b&&pb?b+'x'+pb:'';$('#pk').value=pk?pk.toLocaleString():'';
   $('#bc').value=!q||!pk?'':(pk===q?'✓ Matches':'✗ Difference '+(q-pk>0?'+':'')+(q-pk).toLocaleString());$('#bc').style.color=!q||!pk?'':(pk===q?'#0b6b3a':'#a4161a');
   const r=lines().find(x=>x.variant===$('#va').value);if(!st()&&r){const sd=OUT.filter(o=>o.so===r.so&&o.variant===r.variant&&o!==e).reduce((a,o)=>a+(+o.qty||0),0)+r.sent;$('#sq').value=r.qty.toLocaleString();$('#sd').value=sd.toLocaleString();$('#pq').value=(r.qty-sd).toLocaleString();$('#pa').value=(r.qty-sd-q).toLocaleString()}
-  else if(!st()){['#sq','#sd','#pq','#pa'].forEach(i=>$(i).value='')}
+  else if(!st()){['#sq','#sd','#pq','#pa'].forEach(i=>$(i).value='')}if(MODE==='ULTRA'&&$('#pa'))$('#pa').value='';
   let w='';if(id&&q&&q>made-done)w+=`<div class="msg err" style="margin-top:8px">Dispatch ${q.toLocaleString()} is above the stock available (${(made-done).toLocaleString()}). You can still save — it will be flagged.</div>`;
-  if(!st()&&r&&q&&r.qty-(OUT.filter(o=>o.so===r.so&&o.variant===r.variant&&o!==e).reduce((a,o)=>a+(+o.qty||0),0)+r.sent)-q<0)w+=`<div class="msg err" style="margin-top:8px">This dispatch is more than the Sale Order pending quantity.</div>`;
+  if(MODE!=='ULTRA'&&!st()&&r&&q&&r.qty-(OUT.filter(o=>o.so===r.so&&o.variant===r.variant&&o!==e).reduce((a,o)=>a+(+o.qty||0),0)+r.sent)-q<0)w+=`<div class="msg err" style="margin-top:8px">This dispatch is more than the Sale Order pending quantity.</div>`;
   if(pk&&q&&pk!==q)w+=`<div class="msg err" style="margin-top:8px">Boxes × Qty per box (${pk.toLocaleString()}) does not match the dispatch quantity (${q.toLocaleString()}). Check the box count before saving.</div>`;$('#warn').innerHTML=w};
  ['#bx','#pb','#dq','#svn','#svan','#scol'].forEach(i=>$(i).oninput=$(i).onchange=calc);
  $('#mode').onchange=()=>{$('#soBox').style.display=st()?'none':'';$('#stBox').style.display=st()?'':'none';calc()};
@@ -852,12 +852,44 @@ function outForm(e,stock){const isNew=!e;stock=stock??(e?!e.so:false);
  $('#so').onchange=soChg;$('#va').onchange=fill;soChg();
  const vv=()=>{const x=$('#sv').value,nw=x==='__new';$('#svnl').style.display=nw?'':'none';if(nw){$('#sva').innerHTML='<option value="__new">+ Enter manually…</option>';$('#svanl').style.display=''}else{opt('#sva',MOCK.vendors[x]||[],'— pick —',e?.variant);$('#sva').insertAdjacentHTML('beforeend','<option value="__new">+ Enter manually…</option>');$('#svanl').style.display='none'}calc()};
  $('#sv').onchange=vv;vv();$('#sva').onchange=()=>{$('#svanl').style.display=$('#sva').value==='__new'?'':'none';calc()};
- const shp=()=>{const s=$('#sh').value;opt('#jb',Object.keys(MOCK.shapes[s]||{}),s?'— pick —':'— pick shape first —',e?.job);jb()};const jb=()=>{const j=$('#jb').value;opt('#sp',(MOCK.shapes[$('#sh').value]||{})[j]||[],j?'— pick —':'— pick job first —',e?.spec);calc()};
+ const shp=()=>{const s=$('#sh').value;opt('#jb',Object.keys(MOCK.shapes[s]||{}),s?'— pick —':'— pick shape first —',e?.job);jb()};const jb=()=>{const j=$('#jb').value;opt('#sp',(MOCK.shapes[$('#sh').value]||{})[j]||[],j?'— pick —':'— pick job first —',e?.spec);calc();const dt=MODE==='ULTRA'&&isNew&&j?JOBDEF[j.toUpperCase()]:'';if(dt&&$('#mode').value==='so'){$('#mode').value=dt==='CONSOLE'?'console':'repair';$('#mode').onchange();toast(j+' is a '+dt.toLowerCase()+' order - no Sale Order needed.')}};
  $('#sh').onchange=shp;$('#jb').onchange=jb;$('#sp').onchange=calc;shp();calc();
+ let LN=[];const pctF=(a,b)=>b?Math.round(a/b*100):0,fN=n=>Math.round(+n||0).toLocaleString();
+ const own=id=>{if(!e)return 0;const a=OUTA[e.id]||[];if(a.length){const x=a.find(y=>y.so_line_id===id);return x?+x.qty:0}return(r0&&r0.id===id)?(+e.qty||0):0};
+ const dispOf=l=>l.disp-own(l.id),isClosed=l=>dispOf(l)>=0.95*l.qty;
+ const key=()=>({v:$('#uv')?$('#uv').value:'',j:$('#uj')?$('#uj').value:'',s:$('#us')?$('#us').value:''});
+ const cands=()=>{const k=key();return LN.filter(l=>String(l.vendor_id)===k.v&&l.job===k.j&&l.spec===k.s&&(!isClosed(l)||AL.some(a=>a.id===l.id))).sort((x,y)=>String(x.so_date).localeCompare(String(y.so_date))||x.id-y.id)};
+ function autoSplit(){const L=cands().filter(l=>!isClosed(l)),q=+$('#dq').value||0;let rem=q;AL=[];L.forEach(l=>{const pend=Math.max(l.qty-dispOf(l),0),a=Math.min(rem,pend);if(a>0){AL.push({id:l.id,qty:a});rem-=a}});
+  if(rem>0&&L.length){if(!AL.length)AL.push({id:L[L.length-1].id,qty:0});AL[AL.length-1].qty+=rem}drawAl()}
+ function drawAl(){const box=$('#ul');if(!box)return;const L=cands();
+  if(!key().s){box.innerHTML='<span class="mut">Pick vendor, job and spec: the open Sale Order lines are listed oldest first, and the dispatch quantity is split across them automatically.</span>';return}
+  if(!L.length){box.innerHTML='<span class="mut">No open Sale Order line (below 95% dispatched) for this vendor, job and spec. If this is not a Regular order, choose Repair, Console or Stock as the entry type.</span>';return}
+  const q=+$('#dq').value||0,tot=AL.reduce((a,x)=>a+(+x.qty||0),0);
+  box.innerHTML='<div class="scroll"><table><tr><th>Sale Order</th><th>Date</th><th>Variant</th><th>Colour</th><th>Sale qty</th><th>Dispatched</th><th>%</th><th>Pending</th><th>Expected bodies</th><th>This dispatch</th><th>After this</th></tr>'+L.map(l=>{const a=(AL.find(x=>x.id===l.id)||{qty:0}).qty,d0=dispOf(l),af=d0+(+a),pc=pctF(af,l.qty);
+   return '<tr><td>'+esc(l.so_no)+'</td><td>'+esc(l.so_date||'')+'</td><td>'+esc(l.variant||'')+'</td><td>'+esc(l.colour||'-')+'</td><td>'+fN(l.qty)+'</td><td>'+fN(d0)+'</td><td>'+pctF(d0,l.qty)+'%</td><td>'+fN(Math.max(l.qty-d0,0))+'</td><td>'+fN(l.exp)+(l.est?' *':'')+' ('+pctF(l.exp,l.qty)+'%)</td><td><input type="number" class="ual" data-id="'+l.id+'" value="'+(a||'')+'" style="width:110px"></td><td>'+pc+'% '+(af>1.05*l.qty?'<span class="tag bad">EXCESS</span>':af>=0.95*l.qty?'<span class="tag ok">closes</span>':'')+'</td></tr>'}).join('')+'</table></div><div id="usum" class="mut" style="margin-top:4px"></div>';
+  const sum=()=>{const t=AL.reduce((a,x)=>a+(+x.qty||0),0);$('#usum').innerHTML='Split total '+fN(t)+' of dispatch '+fN(+$('#dq').value||0)+(Math.round(t)===Math.round(+$('#dq').value||0)?' - OK':' - <b style="color:#a4161a">does not add up</b>')+'. A line closes at 95% dispatched; above 105% it is flagged EXCESS.'};sum();
+  box.querySelectorAll('.ual').forEach(i=>{i.oninput=()=>{const id=+i.dataset.id;let x=AL.find(y=>y.id===id);if(!x){x={id,qty:0};AL.push(x)}x.qty=+i.value||0;sum()};i.onchange=()=>{AL=AL.filter(y=>+y.qty>0);drawAl()}})}
+ function onKey(){const k=key();if(!k.s){AL=[];drawAl();return}const l=cands()[0];if(l){$('#so').value=l.so_no;soChg();const vo=[...$('#va').options].find(o=>o.value===l.variant);if(vo)$('#va').value=l.variant;fill();
+   const shn=Object.keys(MOCK.shapes).find(x=>x.toUpperCase()===(l.shape||'').toUpperCase());if(shn){$('#sh').value=shn;shp();const jn=Object.keys(MOCK.shapes[shn]).find(x=>x.toUpperCase()===l.job);if(jn){$('#jb').value=jn;jb();const spn=(MOCK.shapes[shn][jn]||[]).find(x=>x.toUpperCase()===l.spec);if(spn){$('#sp').value=spn;calc()}}}}
+  autoSplit()}
+ function ujs(){const v=$('#uv').value;const L=LN.filter(l=>String(l.vendor_id)===v&&!isClosed(l));const js=[...new Set(L.map(l=>l.job))].sort();$('#uj').innerHTML='<option value="">- pick -</option>'+js.map(x=>'<option>'+esc(x)+'</option>').join('');if(js.length===1)$('#uj').value=js[0];uss()}
+ function uss(){const v=$('#uv').value,j=$('#uj').value;const L=LN.filter(l=>String(l.vendor_id)===v&&l.job===j&&!isClosed(l));const ss=[...new Set(L.map(l=>l.spec))].sort();$('#us').innerHTML='<option value="">- pick -</option>'+ss.map(x=>'<option>'+esc(x)+'</option>').join('');if(ss.length===1)$('#us').value=ss[0];onKey()}
+ function ultraInit(){const box=$('#ufind');if(!box)return;
+  box.innerHTML='<div class="fg"><label>Vendor<select id="uv"><option value="">loading Sale Orders...</option></select></label><label>Job<select id="uj"></select></label><label>Spec<select id="us"></select></label></div><div id="ul" style="margin-top:6px"></div>';
+  R('so_ultra_lines').then(a=>{LN=a.data||[];
+   const vs=new Map();LN.filter(l=>!isClosed(l)).forEach(l=>vs.set(String(l.vendor_id),l.vendor));
+   $('#uv').innerHTML='<option value="">- pick vendor -</option>'+[...vs].sort((x,y)=>String(x[1]).localeCompare(String(y[1]))).map(([k,n])=>'<option value="'+k+'">'+esc(n)+'</option>').join('');
+   $('#uv').onchange=ujs;$('#uj').onchange=uss;$('#us').onchange=onKey;
+   if(e){const al=OUTA[e.id]||[];if(al.length)AL=al.map(x=>({id:x.so_line_id,qty:+x.qty}));else if(r0)AL=[{id:r0.id,qty:+e.qty||0}];
+    const cur=LN.find(l=>AL.length&&l.id===AL[0].id);if(cur){$('#uv').value=String(cur.vendor_id);const L=LN.filter(l=>String(l.vendor_id)===String(cur.vendor_id));$('#uj').innerHTML='<option>'+esc(cur.job)+'</option>';$('#us').innerHTML='<option>'+esc(cur.spec)+'</option>';drawAl()}}
+   else drawAl()}).catch(()=>{$('#uv').innerHTML='<option value="">could not load</option>';$('#ul').innerHTML='<span class="mut">Could not load Sale Order lines. Choose Repair / Console / Stock, or reopen this form.</span>'});
+  $('#dq').addEventListener('input',()=>{if(key().s&&$('#mode').value==='so')autoSplit()})}
+ if(MODE==='ULTRA')ultraInit();
+
  $('#bk').onclick=$('#cx').onclick=()=>go('outward');
- $('#sv2').onclick=()=>{const s=src(),r=lines().find(x=>x.variant===$('#va').value);if(!$('#sh').value||!$('#jb').value||!$('#sp').value)return toast('Pick shape, job name and job spec',true);if(!+$('#dq').value)return toast('Enter the dispatch quantity',true);if(!$('#dc').value)return toast('Enter the DC No',true);
+ $('#sv2').onclick=()=>{const s=src(),r=lines().find(x=>x.variant===$('#va').value);const U=MODE==='ULTRA',alq=AL.filter(x=>+x.qty>0);if(U&&$('#mode').value==='so'){if(!alq.length&&!(e&&e.so))return toast('Pick the vendor, job and spec so the Sale Order split can be made - or choose Repair / Console / Stock as the entry type.',true);if(alq.length&&Math.round(alq.reduce((a,x)=>a+(+x.qty),0))!==Math.round(+$('#dq').value))return toast('The Sale Order split ('+alq.reduce((a,x)=>a+(+x.qty),0).toLocaleString()+') must add up to the dispatch quantity ('+(+$('#dq').value).toLocaleString()+').',true)}if(!$('#sh').value||!$('#jb').value||!$('#sp').value)return toast('Pick shape, job name and job spec',true);if(!+$('#dq').value)return toast('Enter the dispatch quantity',true);if(!$('#dc').value)return toast('Enter the DC No',true);
   const rec={date:$('#d').value,so:st()?'':(r?r.so:''),vendor:s.ve,variant:s.va,colour:s.co,shape:$('#sh').value,job:$('#jb').value,spec:$('#sp').value,boxes:+$('#bx').value||0,perbox:+$('#pb').value||0,qty:+$('#dq').value,invoice:$('#inv').value,dc:$('#dc').value,contact:$('#tc').value,vehicle:$('#vh').value.toUpperCase()};rec.jid=jobId(rec.colour,rec.variant,rec.shape,rec.vendor,rec.job,rec.spec);
-  saveLive('outward_save',{id:e?.id,entry_date:rec.date,so_no:rec.so,so_line_id:r?r.id:null,job:jobObj(rec,{so_line_id:r?r.id:null}),boxes:rec.boxes,packing_style:rec.perbox?rec.perbox+' per box':'',dispatch_qty:rec.qty,invoice:rec.invoice,dc_no:rec.dc,transport_contact:rec.contact,vehicle_no:rec.vehicle},'outward')};
+  saveLive('outward_save',{id:e?.id,entry_date:rec.date,so_no:rec.so,so_line_id:U&&alq.length&&$('#mode').value==='so'?alq[0].id:(r?r.id:null),job:jobObj(rec,{so_line_id:U&&alq.length&&$('#mode').value==='so'?alq[0].id:(r?r.id:null)}),...(U?{order_type:({so:'REGULAR',repair:'REPAIR',console:'CONSOLE'})[$('#mode').value],alloc:$('#mode').value==='so'&&alq.length?alq.map(x=>({so_line_id:x.id,qty:+x.qty})):($('#mode').value==='so'?undefined:[])}:{}),boxes:rec.boxes,packing_style:rec.perbox?rec.perbox+' per box':'',dispatch_qty:rec.qty,invoice:rec.invoice,dc_no:rec.dc,transport_contact:rec.contact,vehicle_no:rec.vehicle},'outward')};
 }
 /* ---------------- Scrap (list + entry) ---------------- */
 let SCRAP=[{id:1,date:'2026-11-09',so:'2500154',vendor:'CONNEDIT BUSINESS SOLUTIONS PRIVATE LIMITED',variant:'ALMOND TINS',colour:'PRINTED',shape:'ROUND',job:'101 DIA SLIP LID',spec:'101x25',kb:0,kl:6.2,kbt:0,kbb:0,wb:0,wl:0.055,wbt:0,wbb:0},
