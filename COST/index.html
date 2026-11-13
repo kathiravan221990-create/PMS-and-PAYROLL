@@ -67,6 +67,14 @@ td input{width:100%;text-align:center}
 #app{display:none;flex:1;min-height:0;flex-direction:column}#app.on{display:flex}
 #loader{position:fixed;inset:0;background:rgba(2,8,24,.55);display:none;align-items:center;justify-content:center;z-index:70}
 #loader img{width:84px;height:84px;animation:sp 1.1s linear infinite;filter:drop-shadow(0 0 12px rgba(217,179,65,.55))}@keyframes sp{to{transform:rotate(360deg)}}
+.g3{display:grid;grid-template-columns:1fr 1.35fr 1fr;gap:10px;margin-bottom:10px}.g2{display:grid;grid-template-columns:1fr 1.35fr;gap:10px;margin-bottom:10px}
+.pn2{background:rgba(15,33,71,.85);border:0.5px solid #8a6f2e;border-radius:12px;padding:10px 12px;min-width:0}
+.pn2 h4{margin:0 0 7px;color:#d4ad55;font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+.mini{background:#0f2147;border:0.5px solid #3a5694;border-radius:8px;padding:5px 8px}.mini b{display:block;font-size:13px;color:#d4ad55}.mini span{color:#aebbd8;font-size:9px}
+.rw{display:flex;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid #2c4580}
+.lgd{display:flex;gap:12px;font-size:9.5px;color:#aebbd8;margin-bottom:5px}.lgd i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.live{margin-left:auto;color:#aebbd8;font-size:10px}.live i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#46d17a;margin-right:5px;box-shadow:0 0 0 3px rgba(70,209,122,.25);animation:pl 1.6s ease-in-out infinite}@keyframes pl{50%{box-shadow:0 0 0 6px rgba(70,209,122,0)}}
+@media(max-width:900px){.g3,.g2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -129,6 +137,7 @@ async function start(){
 $('#go').onclick=doLogin;$('#pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 $('#so').onclick=async()=>{await sb.auth.signOut();location.reload()};
 sb.auth.getSession().then(({data})=>{if(data.session)start()});
+setTimeout(()=>{try{startLive()}catch(e){}},0);
 
 /* ---------------- nav ---------------- */
 const NAV=[['dash','Dashboard'],['entry','Daily entry'],['upload','Upload'],['sep'],['match','Labour match'],['daily','Daily view'],['lines','Repair and safety'],['power','Power and fuel'],['sep'],['reports','Reports'],['rules','Rules']];
@@ -143,6 +152,18 @@ const FYL=y=>{const a=+y.slice(0,4);return 'FY '+a+'-'+(a+1)};
 const addM=(d,k)=>new Date(Date.UTC(+d.slice(0,4),+d.slice(5,7)-1+k,1)).toISOString().slice(0,10);
 const fyOf=d=>{const y=+d.slice(0,4),m=+d.slice(5,7);return (m>=4?y:y-1)+'-04-01'};
 const YC=['#5b9bf0','#f08a3c','#5fbf8f','#b58cf0'];
+const actLabel=r=>{if(!r)return '';const t=new Date(r.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+ const M={tins_month:'Tins entered',tins_day:'Tins entered',daily_save:'Expense entry saved',daily_delete:'Expense entry deleted',no_expense:'No expense marked',target_set:'Target set',upload_post:'Excel uploaded',upload:'Excel uploaded'};
+ return t+' '+(M[r.action]||String(r.action||'').replace(/_/g,' '))};
+let _lvp=null;
+function startLive(){clearInterval(_lvp);_lvp=setInterval(async()=>{
+ if(S.view!=='dash'||document.hidden||!DS.live)return;
+ try{const {data,error}=await sb.schema('cost_api').rpc('live');if(error||!data)return;
+  const el=$('#lvt');if(el)el.textContent='updated '+new Date().toLocaleTimeString('en-GB');
+  if(data.stamp!==DS.live.stamp){const first=data.recent[0];DS.live=data;
+   if(['tn','nd'].includes(document.activeElement&&document.activeElement.id))return;
+   await VIEWS.dash();toast('Dashboard updated: '+actLabel(first))}
+ }catch(e){}},15000)}
 const DS={fy:null,q:'all',mon:'all',day:'all',cmp:false,years:null,all:null,init:false};
 async function dashSel(fy){
  if(DS.day!=='all'&&DS.mon!=='all')return null;
@@ -159,6 +180,8 @@ VIEWS.dash=async function(){
   if(d0.cutoff==null){const l=[...d0.trend].reverse().find(t=>t.cy!=null);if(l)m=l.month.slice(0,10)}
   DS.fy=fyOf(m);DS.mi=(+m.slice(5,7)+8)%12;DS.q=Math.floor(DS.mi/3)+1;DS.mon='y';DS.init=true;DS.years=[DS.fy];
  }
+ try{DS.live=await R('live')}catch(e){DS.live=DS.live||{stamp:0,recent:[]}}
+ DS.liveAt=new Date().toLocaleTimeString('en-GB');
  const fy=DS.fy,qm=DS.q==='all'?[...Array(12).keys()]:[0,1,2].map(i=>(DS.q-1)*3+i);
  if(DS.mon!=='all'&&!qm.includes(DS.mi))DS.mon='all';
  if(DS.mon==='y')DS.mon='m';
@@ -171,7 +194,7 @@ VIEWS.dash=async function(){
   <select id="sm"><option value="all">All months</option>${qm.map(i=>`<option value="${i}" ${DS.mon!=='all'&&DS.mi===i?'selected':''}>${MON[(i+3)%12]}</option>`).join('')}</select>
   <select id="sd" ${selMonth?'':'disabled'}><option value="all">All dates</option>${days.map(x=>`<option value="${x}" ${DS.day===x?'selected':''}>${dl(x)}</option>`).join('')}</select>
   <select id="sc"><option value="0">No comparison</option><option value="1" ${DS.cmp?'selected':''}>Compare years</option></select>
-  ${DS.cmp?DS.all.map((y,i)=>`<label class="note"><input type="checkbox" data-y="${y}" ${DS.years.includes(y)?'checked':''}> ${FYL(y)}</label>`).join(' '):''}</div>`;
+  ${DS.cmp?DS.all.map((y,i)=>`<label class="note"><input type="checkbox" data-y="${y}" ${DS.years.includes(y)?'checked':''}> ${FYL(y)}</label>`).join(' '):''}<span class="live"><i></i>LIVE · <span id="lvt">updated ${DS.liveAt}</span></span></div>`;
  const wire=()=>{
   $('#sy').onchange=e=>{DS.fy=e.target.value;DS.day='all';VIEWS.dash()};
   $('#sq').onchange=e=>{DS.q=e.target.value==='all'?'all':+e.target.value;DS.mon='all';DS.day='all';VIEWS.dash()};
@@ -242,51 +265,64 @@ VIEWS.dash=async function(){
  const cyT=have&&d.tins_cy>0?cyA/d.tins_cy:null,pyT=d.tins_py>0?pyA/d.tins_py:null;
  const lastT=[...d.trend].reverse().find(t=>t.cy!=null&&trendIdx(t));
  const tr=d.trend.filter(trendIdx);
+ let target=null;try{target=await R('target_get',{p_fy:fy})}catch(e){}
  let w='';
  if(d.labour_split_missing)w+=`<div class="warn">Labour for ${ml(d.month)} is available only as a monthly invoice, so a part-month figure cannot be shown.</div>`;
  else if(d.mode==='month'&&d.waiting.length){
   const missing=d.waiting.filter(x=>!x.through).map(x=>SN[x.key]),part=d.waiting.filter(x=>x.through);
   w+=`<div class="warn">${d.cutoff?`Cost per tin is shown up to ${dl(d.cutoff)} only.`:'Cost per tin for this month is incomplete.'} ${missing.length?`Waiting for: ${missing.join(', ')}. `:''}${part.length?`Entered only up to: ${part.map(x=>SN[x.key]+' '+dl(x.through)).join(', ')}.`:''}</div>`}
- else if(d.mode!=='month'){const inc=tr.filter(t=>t.state==='incomplete').map(t=>MON[+t.month.slice(5,7)-1]);if(inc.length)w+=`<div class="warn">Months left out (incomplete): ${inc.join(', ')}. Totals count complete months only.</div>`}
- const chips=d.mode==='month'?`<div class="cards" style="grid-template-columns:repeat(6,minmax(0,1fr))">${d.status.map(s=>`<div class="c" style="border-color:${s.state==='ok'?'#4c9a67':s.state==='partial'?'#d4ad55':'#c8534a'}"><b style="font-size:10.5px;color:${s.state==='ok'?'#86d9a0':s.state==='partial'?'#f0cf6a':'#ff9a90'}">${s.state==='ok'?'Complete':s.state==='partial'?'Up to '+dl(s.through):'Missing'}</b><span>${SN[s.key]}</span></div>`).join('')}</div>`:'';
  const rng=d.period_to&&have?(d.mode==='month'?`${dl(d.period_from)} to ${dl(d.period_to)}`:scopeName()+' '+FYL(fy)):'no complete period';
  const fb=cyT==null&&lastT;
  const shownT=cyT!=null?cyT:fb?lastT.cy:null,shownP=cyT!=null?pyT:fb?lastT.py:null;
- const vv=shownT!=null&&shownP!=null?shownT-shownP:null;
- const lbl=cyT!=null?`Cost per tin, ${rng}`:fb?`Latest complete: ${ml(lastT.month)}`:'Cost per tin';
- const tiles=`<div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-  <div class="c"><b>${shownT!=null?pt(shownT):'Incomplete'}</b><span>${lbl}</span></div>
-  <div class="c"><b>${pt(shownP)}</b><span>Previous year per tin</span></div>
-  <div class="c"><b style="color:${vv==null?'#d4ad55':vv<0?'#86d9a0':'#ff9a90'}">${vv==null?'-':(vv<0?'▼ ':'▲ ')+Math.abs(vv).toFixed(2)}</b><span>Variance</span></div>
-  <div class="c"><b>${have?n(d.tins_cy):'-'}</b><span>Tins produced</span></div></div>`;
- const tbl=`<table><tr><th style="width:26%">Category</th><th>Amount</th><th>Per tin</th><th>Previous year</th><th>Variance</th></tr>
-  ${rows.map(r=>`<tr><td class="l">${CAT[r.category]}</td><td class="rt">${n(r.cy_amount)}</td><td>${pt(r.cy_per_tin)}</td><td>${pt(r.py_per_tin)}</td>${vr(r.cy_per_tin,r.py_per_tin)}</tr>`).join('')}
-  <tr class="t"><td class="l">Total</td><td class="rt">${n(cyA)}</td><td>${pt(cyT)}</td><td>${pt(pyT)}</td>${vr(cyT,pyT)}</tr></table>`;
- const mx=Math.max(1.6,...tr.map(t=>Math.max(t.cy||0,t.py||0)))*1.1,H=130,bw=tr.length>6?11:20;
- const stp=410/tr.length;
- let sv=`<svg viewBox="0 0 430 ${H+30}" style="width:100%;height:auto">`;
- tr.forEach((t,i)=>{const x=10+i*stp,hy=(t.py||0)/mx*H,hc=(t.cy||0)/mx*H;
-  if(t.cy!=null)sv+=`<rect x="${x}" y="${H-hc}" width="${bw}" height="${hc}" fill="#5b9bf0"/><text x="${x+bw/2}" y="${H-hc-3}" font-size="7" fill="#e3e9f5" text-anchor="middle">${pt(t.cy)}</text>`;
-  else if(t.state==='incomplete')sv+=`<rect x="${x}" y="${H-55}" width="${bw}" height="55" fill="none" stroke="#aebbd8" stroke-dasharray="3 2"/><text x="${x+bw/2}" y="${H-20}" font-size="7" fill="#f0cf6a" text-anchor="middle">?</text>`;
-  if(t.py!=null)sv+=`<rect x="${x+bw+1}" y="${H-hy}" width="${bw}" height="${hy}" fill="#f08a3c"/><text x="${x+bw+1+bw/2}" y="${H-hy-3}" font-size="7" fill="#e3e9f5" text-anchor="middle">${pt(t.py)}</text>`;
-  sv+=`<text x="${x+bw}" y="${H+12}" font-size="8" fill="#aebbd8" text-anchor="middle">${MON[+t.month.slice(5,7)-1]}</text>`});
- sv+=`<line x1="5" x2="425" y1="${H}" y2="${H}" stroke="#3a5694"/></svg>`;
- const leg=`<div class="note"><span style="color:#5b9bf0">■</span> This year &nbsp;<span style="color:#f08a3c">■</span> Previous year &nbsp;Dashed bar (?) = Incomplete, month not yet complete</div>`;
- const tm=Math.max(cyT||0,pyT||0,0.01),cm=Math.max(0.01,...rows.map(r=>Math.max(r.cy_per_tin||0,r.py_per_tin||0)));
- const hb=(lbl,a,b,m,sep)=>`<div style="display:grid;grid-template-columns:90px 1fr;gap:6px;align-items:center;margin:3px 0;${sep?'border-top:1px dashed #8a6f2e;padding-top:5px;margin-top:6px':''}"><span>${lbl}</span><div>
-  <div style="display:flex;align-items:center;gap:4px"><div style="height:7px;width:${a==null?0:Math.max(1,a/m*85)}%;background:#5b9bf0"></div><small>${pt(a)}</small></div>
-  <div style="display:flex;align-items:center;gap:4px;margin-top:1px"><div style="height:7px;width:${b==null?0:Math.max(1,b/m*85)}%;background:#f08a3c"></div><small>${pt(b)}</small></div></div></div>`;
- const hbars=hb('<b>Total expenses</b>',cyT,pyT,tm,false)+rows.map((r,i)=>hb(CAT[r.category],r.cy_per_tin,r.py_per_tin,cm,i===0)).join('');
+ const pctv=shownT!=null&&shownP!=null&&shownP>0?(shownP-shownT)/shownP*100:null;
+ const gauge=p=>{const f=p==null?0:Math.min(Math.abs(p)/12,1),col=p!=null&&p<0?'#ff9a90':'#5fbf8f',x=100-80*Math.cos(f*Math.PI),y=100-80*Math.sin(f*Math.PI);
+  return `<svg viewBox="0 0 200 118" style="width:100%"><path d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="#1e3a72" stroke-width="15" stroke-linecap="round"/>${f>0?`<path d="M20,100 A80,80 0 0 1 ${x.toFixed(1)},${y.toFixed(1)}" fill="none" stroke="${col}" stroke-width="15" stroke-linecap="round"/>`:''}
+  <text x="100" y="${p==null?92:84}" text-anchor="middle" font-size="${p==null?12:28}" font-weight="700" fill="#f0cf6a">${p==null?'No previous year data':Math.abs(p).toFixed(1)+'%'}</text>${p==null?'':`<text x="100" y="100" text-anchor="middle" font-size="9.5" fill="#aebbd8">${p>=0?'lower':'higher'} than last year</text>`}
+  <text x="20" y="116" font-size="8.5" fill="#aebbd8">worse</text><text x="180" y="116" font-size="8.5" fill="#aebbd8" text-anchor="end">better</text></svg>`};
+ const lbl=cyT!=null?(d.mode==='month'?'Cost per tin · '+ml(d.month):'Cost per tin · '+scopeName()+' '+FYL(fy)):fb?'Latest complete · '+ml(lastT.month):'Cost per tin';
+ const tgt=`Target ${target!=null?pt(target):'not set'}${has('map_edit')?' <span class="ico" id="tg" title="Set target">✎</span>':''}`;
+ const box1=`<div class="pn2"><h4>${lbl}</h4><div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:50px;font-weight:700;color:#f0cf6a;line-height:1">${shownT!=null?pt(shownT):'-'}</span><span class="note">per tin${shownT==null?' · Incomplete':''}</span></div>
+  <div class="note" style="margin:4px 0 2px">Last year ${pt(shownP)} · ${tgt}</div>
+  <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:8px;align-items:center"><div>${gauge(pctv)}</div><div style="display:flex;flex-direction:column;gap:8px"><div class="mini"><b>${have?n(d.tins_cy):'-'}</b><span>Tins</span></div><div class="mini"><b>${have?n(cyA):'-'}</b><span>Total cost</span></div></div></div></div>`;
+ const mxc=Math.max(0.01,...rows.map(r=>Math.max(r.cy_per_tin||0,r.py_per_tin||0))),mxt=Math.max(0.01,shownT||0,shownP||0);
+ const crow=(l,a,b,m,tot)=>{const dv=a!=null&&b!=null?a-b:null,hh=tot?9:7;return `<div style="display:grid;grid-template-columns:92px 1fr 62px;gap:8px;align-items:center;padding:${tot?7:4}px 0;${tot?'border-bottom:1px solid #8a6f2e;margin-bottom:3px':''}"><span style="${tot?'font-weight:700':''}">${l}</span><div><div style="display:flex;gap:5px;align-items:center"><div style="height:${hh}px;width:${a==null?0:Math.max(1.5,a/m*88)}%;background:#5b9bf0;border-radius:2px"></div><small>${pt(a)}</small></div><div style="display:flex;gap:5px;align-items:center;margin-top:2px"><div style="height:${hh}px;width:${b==null?0:Math.max(1.5,b/m*88)}%;background:#f08a3c;border-radius:2px"></div><small class="note">${pt(b)}</small></div></div><span style="text-align:right;font-weight:600;color:${dv==null?'#aebbd8':dv<0?'#86d9a0':dv>0?'#ff9a90':'#aebbd8'}">${dv==null?'-':(dv<0?'▼ ':dv>0?'▲ ':'– ')+Math.abs(dv).toFixed(2)}</span></div>`};
+ const box2=`<div class="pn2"><h4>Per tin cost comparison</h4><div class="lgd"><span><i style="background:#5b9bf0"></i>This year</span><span><i style="background:#f08a3c"></i>Last year</span><span style="margin-left:auto">Change vs last year</span></div>${crow('<b>Total per tin</b>',shownT,shownP,mxt,true)}${rows.map(r=>crow(CAT[r.category],cyT!=null?r.cy_per_tin:null,r.py_per_tin,mxc,false)).join('')}</div>`;
+ let rdy='';
+ if(d.mode==='month'){rdy=d.status.map(s=>`<div class="rw"><span>${SN[s.key]}</span><span style="color:${s.state==='ok'?'#86d9a0':s.state==='partial'?'#f0cf6a':'#ff9a90'}">${s.through?dl(s.through):'Missing'}</span></div>`).join('')+'<div class="note" style="margin-top:6px">Green = complete to month end. Amber = updated up to that date. Red = missing.</div>'}
+ else{rdy=tr.filter(t=>t.state!=='future').map(t=>`<div class="rw"><span>${MON[+t.month.slice(5,7)-1]}</span><span style="color:${t.state==='complete'?'#86d9a0':'#f0cf6a'}">${t.state==='complete'?'Complete':'Incomplete'}</span></div>`).join('')+'<div class="note" style="margin-top:6px">Totals count complete months only.</div>'}
+ const box3=`<div class="pn2"><h4>Data updated up to</h4>${rdy}</div>`;
+ /* bottom-left: bars */
+ let sv;
+ if(d.mode==='month'){const mx=Math.max(1.6,shownT||0,shownP||0)*1.15,H=120,bw=56,vb=(x,v,col,l,dash)=>v!=null?`<rect x="${x}" y="${H-v/mx*H}" width="${bw}" height="${v/mx*H}" rx="2" fill="${col}"/><text x="${x+bw/2}" y="${H-v/mx*H-5}" text-anchor="middle" font-size="12" font-weight="600" fill="#e3e9f5">${pt(v)}</text><text x="${x+bw/2}" y="${H+15}" text-anchor="middle" font-size="10" fill="#aebbd8">${l}</text>`:`<rect x="${x}" y="${H-45}" width="${bw}" height="45" fill="none" stroke="#aebbd8" stroke-dasharray="3 2"/><text x="${x+bw/2}" y="${H-20}" text-anchor="middle" font-size="9" fill="#f0cf6a">${dash}</text><text x="${x+bw/2}" y="${H+15}" text-anchor="middle" font-size="10" fill="#aebbd8">${l}</text>`;
+  const mm=fb?lastT.month:d.month,pm=addM(mm,-12);
+  sv=`<svg viewBox="0 0 330 ${H+30}" style="width:100%">${vb(80,shownT,'#5b9bf0',ml(mm),'Incomplete')}${vb(180,shownP,'#f08a3c',ml(pm),'No data')}<line x1="40" x2="290" y1="${H}" y2="${H}" stroke="#3a5694"/></svg>`}
+ else{const mx=Math.max(1.6,...tr.map(t=>Math.max(t.cy||0,t.py||0)))*1.1,H=130,bw=tr.length>6?11:20,stp=410/tr.length;
+  sv=`<svg viewBox="0 0 430 ${H+30}" style="width:100%">`;
+  tr.forEach((t,i)=>{const x=10+i*stp,hy=(t.py||0)/mx*H,hc=(t.cy||0)/mx*H;
+   if(t.cy!=null)sv+=`<rect x="${x}" y="${H-hc}" width="${bw}" height="${hc}" fill="#5b9bf0"/><text x="${x+bw/2}" y="${H-hc-3}" font-size="7" fill="#e3e9f5" text-anchor="middle">${pt(t.cy)}</text>`;
+   else if(t.state==='incomplete')sv+=`<rect x="${x}" y="${H-55}" width="${bw}" height="55" fill="none" stroke="#aebbd8" stroke-dasharray="3 2"/><text x="${x+bw/2}" y="${H-20}" font-size="7" fill="#f0cf6a" text-anchor="middle">?</text>`;
+   if(t.py!=null)sv+=`<rect x="${x+bw+1}" y="${H-hy}" width="${bw}" height="${hy}" fill="#f08a3c"/><text x="${x+bw+1+bw/2}" y="${H-hy-3}" font-size="7" fill="#e3e9f5" text-anchor="middle">${pt(t.py)}</text>`;
+   sv+=`<text x="${x+bw}" y="${H+12}" font-size="8" fill="#aebbd8" text-anchor="middle">${MON[+t.month.slice(5,7)-1]}</text>`});
+  sv+=`<line x1="5" x2="425" y1="${H}" y2="${H}" stroke="#3a5694"/></svg>`}
+ const box4=`<div class="pn2"><h4>${d.mode==='month'?'Total per tin · chosen month':'Cost per tin by month'}</h4><div class="lgd"><span><i style="background:#5b9bf0"></i>This year</span><span><i style="background:#f08a3c"></i>Last year</span>${d.mode==='month'?'':'<span>Dashed (?) = Incomplete</span>'}</div>${sv}</div>`;
+ /* donut */
+ const SH=['#d4ad55','#8fb8c9','#5f9ea0','#b9a27a','#6c7f99'],amts=rows.map(r=>+r.cy_amount||0),tot=amts.reduce((a,b)=>a+b,0),R0=50,CC=2*Math.PI*R0;let off=0;
+ const arcs=tot>0?amts.map((v,i)=>{const l=v/tot*CC,e=`<circle cx="70" cy="70" r="${R0}" fill="none" stroke="${SH[i%5]}" stroke-width="16" stroke-dasharray="${l} ${CC-l}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;off+=l;return e}).join(''):'';
+ const ring=`<svg viewBox="0 0 140 140" style="width:150px"><circle cx="70" cy="70" r="${R0}" fill="none" stroke="#1e3a72" stroke-width="16"/>${arcs}<text x="70" y="68" text-anchor="middle" font-size="12" font-weight="600" fill="#d4ad55">${tot>0?(tot>=100000?(tot/100000).toFixed(1)+' L':n(tot)):'-'}</text><text x="70" y="81" text-anchor="middle" font-size="8" fill="#aebbd8">total cost</text></svg>`;
+ const lg=rows.map((r,i)=>`<div style="display:grid;grid-template-columns:10px 1fr 76px 34px 40px;gap:6px;padding:3px 0;border-bottom:.5px solid #2c4580;align-items:center"><i style="width:8px;height:8px;border-radius:2px;background:${SH[i%5]}"></i><span>${CAT[r.category]}</span><span style="text-align:right">${n(r.cy_amount)}</span><span style="text-align:right" class="note">${tot>0?Math.round(amts[i]/tot*100)+'%':'-'}</span><span style="text-align:right;color:#d4ad55">${pt(cyT!=null?r.cy_per_tin:null)}</span></div>`).join('');
+ const box5=`<div class="pn2"><h4>Share of cost by category</h4><div style="display:grid;grid-template-columns:170px 1fr;gap:12px;align-items:center"><div style="text-align:center">${ring}</div><div>${lg}<div class="note" style="margin-top:3px">amount · share · per tin</div></div></div></div>`;
+ /* daily entry + live */
  const day=S.entryDate||new Date().toISOString().slice(0,10);let ne=[];
  if(has('entry')){try{ne=await R('no_expense_list',{p_date:day})}catch(e){}}
  const NB=[['repair','repair'],['safety','safety'],['consumable','consumable'],['fuel','diesel']];
- const daily=has('entry')?`<h3>Daily entry</h3><div class="tabs"><input type="date" id="nd" value="${day}">
-  ${NB.map(([k,l])=>`<button class="btn ${ne.includes(k)?'p':''}" data-ne="${k}">${ne.includes(k)?'✓ ':''}No ${l} expense today</button>`).join('')}
-  <button class="btn" id="goent">Add an expense</button></div><div class="note">Mark "No expense" so the day counts as complete and cost per tin can include it.</div>`:'';
- $('#main').innerHTML=pick+`<div class="note" style="margin-bottom:5px">${rng}</div>${w}${chips}${tiles}${tbl}
- ${d.mode==='month'&&has('tins_edit')?`<div class="tabs"><span class="note">Tins produced in ${ml(d.month)}:</span><input id="tn" type="number" min="0" placeholder="Enter tins" style="width:110px"><button class="btn p" id="tns">Save tins</button><span class="note">Typed for now; PMS production will fill this later. Previous year is the full month.</span></div>`:''}
- <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><h3>Cost per tin by month</h3>${sv}${leg}</div><div><h3>Cost per tin by category</h3>${hbars}</div></div>${daily}`;
+ const lv=DS.live||{recent:[]};
+ const act=lv.recent.slice(0,2).map(r=>actLabel(r)).join(' · ');
+ const daily=has('entry')?`<div class="pn2" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px"><span><b style="color:#d4ad55">DAILY ENTRY</b> &nbsp;<input type="date" id="nd" value="${day}">
+  ${NB.map(([k,l])=>`<button class="btn ${ne.includes(k)?'p':''}" data-ne="${k}">${ne.includes(k)?'✓ ':''}No ${l} expense</button>`).join('')}<button class="btn" id="goent">Add an expense</button></span><span class="note">${act?'Latest: '+act:''}</span></div>`:'';
+ $('#main').innerHTML=pick+`${w}<div class="g3">${box1}${box2}${box3}</div><div class="g2">${box4}${box5}</div>
+ ${d.mode==='month'&&has('tins_edit')?`<div class="tabs"><span class="note">Tins produced in ${ml(d.month)}:</span><input id="tn" type="number" min="0" placeholder="Enter tins" style="width:110px"><button class="btn p" id="tns">Save tins</button><span class="note">Typed for now; PMS production will fill this later.</span></div>`:''}${daily}`;
  wire();
+ if($('#tg'))$('#tg').onclick=async()=>{const v=prompt('Target cost per tin for '+FYL(fy),target!=null?target:'');if(v==null||!(+v>0))return;try{await R('target_set',{p_fy:fy,p_target:+v});toast('Target saved');VIEWS.dash()}catch(e){toast(em(e),'err')}};
  if($('#tns'))$('#tns').onclick=async()=>{try{await R('tins_save',{p_month:d.month,p_tins:+$('#tn').value});toast('Tins saved');VIEWS.dash()}catch(e){toast(em(e),'err')}};
  if(has('entry')){
   $('#nd').onchange=e=>{S.entryDate=e.target.value;VIEWS.dash()};
