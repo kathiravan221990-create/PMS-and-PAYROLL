@@ -215,10 +215,19 @@ VIEWS.dash=async function(){
  if(DS.day!=='all'){
   const x=await R('dash_day',{p_date:DS.day});
   if(x.monthly_only){$('#main').innerHTML=pick+`<div class="warn">${dl(DS.day)}: this period holds monthly figures only, so a single date cannot be shown. Choose All dates.</div>`;wire();return}
-  const tot=x.rows.reduce((a,r)=>a+(+r.amount||0),0);
+  const tot=x.rows.reduce((a,r)=>a+(+r.amount||0),0),ok=x.complete&&x.tins>0;
+  const DC=['#5b9bf0','#f08a3c','#5fbf8f','#b58cf0','#e8c35a'];
+  const R0=52,C=2*Math.PI*R0;let off=0;
+  const arcs=tot>0?x.rows.map((r,i)=>{const f=(+r.amount||0)/tot,len=f*C;const e=`<circle cx="70" cy="70" r="${R0}" fill="none" stroke="${DC[i%5]}" stroke-width="18" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;off+=len;return e}).join(''):'';
+  const ring=`<svg viewBox="0 0 140 140" style="width:170px;height:170px"><circle cx="70" cy="70" r="${R0}" fill="none" stroke="#1e3a72" stroke-width="18"/>${arcs}
+   <text x="70" y="66" text-anchor="middle" font-size="17" font-weight="600" fill="#d4ad55">${ok?pt(tot/x.tins):n(tot)}</text><text x="70" y="80" text-anchor="middle" font-size="7.5" fill="#aebbd8">${ok?'per tin':'total cost'}</text></svg>`;
   $('#main').innerHTML=pick+`<h3>${dl(DS.day)} ${DS.day.slice(0,4)}</h3>${x.complete?'':`<div class="warn">This date is not complete in every category yet, so cost per tin is not shown. Waiting for: ${x.status.filter(s=>!s.ok).map(s=>SN[s.key]).join(', ')}.</div>`}
-  <div class="cards" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="c"><b>${x.complete&&x.tins>0?pt(tot/x.tins):'Incomplete'}</b><span>Cost per tin</span></div><div class="c"><b>${n(tot)}</b><span>Total cost</span></div><div class="c"><b>${n(x.tins)}</b><span>Tins</span></div></div>
-  <table><tr><th>Category</th><th>Amount</th><th>Per tin</th></tr>${x.rows.map(r=>`<tr><td class="l">${CAT[r.category]}</td><td class="rt">${n(r.amount)}</td><td>${x.complete&&x.tins>0?pt(r.amount/x.tins):'-'}</td></tr>`).join('')}</table>`;
+  <div class="cards" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="c"><b>${ok?pt(tot/x.tins):'Incomplete'}</b><span>Cost per tin</span></div><div class="c"><b>${n(tot)}</b><span>Total cost</span></div><div class="c"><b>${n(x.tins)}</b><span>Tins</span></div></div>
+  <div style="display:grid;grid-template-columns:190px 1fr;gap:14px;align-items:center;background:rgba(15,33,71,.6);border:0.5px solid #3a5694;border-radius:9px;padding:10px">
+   <div style="text-align:center">${ring}${tot>0?'':'<div class="note">No cost recorded</div>'}</div>
+   <div>${x.rows.map((r,i)=>{const sh=tot>0?(+r.amount||0)/tot*100:0;return `<div style="display:grid;grid-template-columns:12px 1fr 80px 46px 56px;gap:6px;align-items:center;padding:4px 0;border-bottom:0.5px solid #2c4580"><span style="width:9px;height:9px;border-radius:50%;background:${DC[i%5]}"></span><span>${CAT[r.category]}</span><span style="text-align:right">${n(r.amount)}</span><span style="text-align:right;color:#aebbd8">${sh.toFixed(0)}%</span><span style="text-align:right;color:#d4ad55">${ok?pt(r.amount/x.tins):'-'}</span></div>`}).join('')}
+   <div style="display:grid;grid-template-columns:12px 1fr 80px 46px 56px;gap:6px;padding:5px 0;color:#d4ad55;font-weight:600"><span></span><span>Total</span><span style="text-align:right">${n(tot)}</span><span style="text-align:right">100%</span><span style="text-align:right">${ok?pt(tot/x.tins):'-'}</span></div>
+   <div class="note">Columns: amount, share of the day's cost, per tin.</div></div></div>`;
   wire();return;
  }
  /* ---------- single period ---------- */
