@@ -106,7 +106,7 @@ begin
   update _cost_in t set base_name = vm.base_name, shift = vm.month_shift
     from cost.vendor_map vm where vm.vendor_name = t.vendor and vm.active and t.category = 'labour';
   update _cost_in set shift = 0 where shift is null;
-  update _cost_in set cost_month = (date_trunc('month', pd) + make_interval(months => shift))::date;
+  update _cost_in set cost_month = (date_trunc('month', pd) + make_interval(months => shift))::date where true;
 
   update _cost_in t set line_key = md5(concat_ws('|', coalesce(t.dk,''), coalesce(t.it,''), coalesce(t.d,''), t.a::text, n.rn::text))
     from (select ctid cid, row_number() over (partition by dk, it, d, a order by i, ctid) rn from _cost_in) n
