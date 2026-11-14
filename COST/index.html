@@ -202,9 +202,7 @@ async function dashSel(fy){
 VIEWS.dash=async function(){
  if(!DS.init){
   DS.all=(await R('cost_years')).map(x=>x.slice(0,10));
-  let m=ms(),d0=await R('dash2',{p_month:m,p_mode:'month'});
-  if(d0.cutoff==null){const l=[...d0.trend].reverse().find(t=>t.cy!=null);if(l)m=l.month.slice(0,10)}
-  DS.fy=fyOf(m);DS.mi=(+m.slice(5,7)+8)%12;DS.q=Math.floor(DS.mi/3)+1;DS.mon='y';DS.init=true;DS.years=[DS.fy];
+  await goLive();DS.init=true;
  }
  try{DS.live=await R('live')}catch(e){DS.live=DS.live||{stamp:0,recent:[]}}
  DS.liveAt=new Date().toLocaleTimeString('en-GB');
