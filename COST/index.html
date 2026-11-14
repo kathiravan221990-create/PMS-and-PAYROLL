@@ -386,8 +386,9 @@ const dstr=v=>{if(v instanceof Date)return new Date(v.getTime()+12*3600*1000).to
 VIEWS.upload=async function(){
  const up=S.masters.uploads||[];
  $('#main').innerHTML=`<h3>Upload monthly Excel</h3>
- <div class="drop">${has('upload')?`Excel 2: CP expense register (Excel 3 for power is added later)<br><br><input type="file" id="fl" accept=".xlsx,.xls,.csv">`:'You do not have permission to upload.'}</div>
+ <div class="drop">${has('upload')?`Excel 1: CP expense register (labour, repair, safety, consumable and diesel/fuel accounts)<br><br><input type="file" id="fl" accept=".xlsx,.xls,.csv">`:'You do not have permission to upload.'}</div>
  <div id="pv"></div>
+ ${has('upload')?`<div class="drop">Excel 2: Electrical expenses (electricity charges ledger). The month is read from the Details column; if there is no month there, the Posting Date is used.<br><br><input type="file" id="fl2" accept=".xlsx,.xls,.csv"></div><div id="pv2"></div>`:''}
  <h3>Recent uploads</h3><table><tr><th>Date</th><th>File</th><th>Posted from</th><th>Posted to</th><th>Rows kept</th><th>Amount kept</th></tr>
  ${up.map(u=>`<tr><td>${dl(u.uploaded_at)}</td><td class="l">${esc(u.file_name)}</td><td>${u.posted_from?dl(u.posted_from):'-'}</td><td>${u.posted_to?dl(u.posted_to):'-'}</td><td>${n(u.rows_kept)}</td><td class="rt">${n(u.amount_kept,2)}</td></tr>`).join('')||'<tr><td colspan="6">No uploads yet.</td></tr>'}</table>
  <div class="note">The Excel is read in your browser. Only the rows for the mapped accounts are saved; the file itself is never stored and is cleared from the screen after saving.</div>`;
@@ -407,6 +408,43 @@ VIEWS.upload=async function(){
    e.target.value='';
    const pv=await R('upload_preview',{p:S.pending});showPreview(pv);
   }catch(err){S.pending=null;$('#pv').innerHTML=`<div class="err">${esc(em(err))}</div>`}};
+ const MONI={JAN:1,JANUARY:1,FEB:2,FEBRUARY:2,MAR:3,MARCH:3,APR:4,APRIL:4,MAY:5,JUN:6,JUNE:6,JUL:7,JULY:7,AUG:8,AUGUST:8,SEP:9,SEPT:9,SEPTEMBER:9,OCT:10,OCTOBER:10,NOV:11,NOVEMBER:11,DEC:12,DECEMBER:12};
+ const MRE=/\b(JANUARY|FEBRUARY|MARCH|APRIL|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER|SEPT|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?![A-Z])\s*(\d{4})?/;
+ const elecMonth=(det,pd)=>{const py=+pd.slice(0,4),pm=+pd.slice(5,7),k=String(det||'').toUpperCase().match(MRE);
+  if(!k)return {y:py,m:pm,how:'p'};const m=MONI[k[1]];let y=k[2]?+k[2]:null,how='d';
+  if(y!=null){const back=(py*12+pm)-(y*12+m);if(back<0||back>11){y=null;how='f'}}
+  if(y==null){y=py;if(m>pm)y=py-1}
+  return {y,m,how}};
+ $('#fl2').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  try{
+   const buf=await f.arrayBuffer();const wb=XLSX.read(buf,{type:'array',cellDates:true});
+   const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null,raw:true});
+   if(!rows.length||['Posting Date','Details','Debit (LC)'].some(k=>!(k in rows[0]))){$('#pv2').innerHTML='<div class="err">This does not look like the electrical charges ledger. Columns needed: Posting Date, Details, Debit (LC), Credit (LC).</div>';e.target.value='';return}
+   const num=v=>{if(v==null||v==='')return 0;if(typeof v==='number')return v;const x=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(x)?0:x};
+   const items=[];
+   rows.forEach(r=>{const pd=dstr(r['Posting Date']);if(!pd)return;const a=num(r['Debit (LC)'])-num(r['Credit (LC)']);if(a===0&&!r['Details'])return;
+    items.push({a,det:String(r['Details']||''),mm:elecMonth(r['Details'],pd)})});
+   /* a reversal with no month in its text takes the month of the entry it cancels */
+   const used=new Set();
+   items.forEach(it=>{if(it.mm.how!=='p'||!/REVERS/i.test(it.det))return;
+    const j=items.findIndex((o,k)=>!used.has(k)&&o!==it&&o.mm.how!=='p'&&Math.abs(o.a+it.a)<0.01);
+    if(j>=0){used.add(j);it.mm={y:items[j].mm.y,m:items[j].mm.m,how:'r'}}});
+   const agg={};
+   items.forEach(it=>{const mm=it.mm,key=mm.y+'-'+String(mm.m).padStart(2,'0')+'-01';
+    const g=agg[key]=agg[key]||{m:key,a:0,n:0,h:{}};g.a+=it.a;g.n++;g.h[mm.how]=(g.h[mm.how]||0)+1});
+   const months=Object.values(agg).sort((a,b)=>a.m<b.m?-1:1).map(g=>({m:g.m,a:Math.round(g.a*100)/100,n:g.n,s:Object.keys(g.h).map(k=>k==='d'?'Details':k==='p'?'Posting date':k==='r'?'Reversal matched to its original':'Details, year from posting date').join(' + '),f:!!g.h.f}));
+   e.target.value='';
+   S.pendingP={file_name:f.name,rows_in_file:rows.length,months};
+   const pv=await R('power_upload_preview',{p:S.pendingP});
+   const tot=pv.reduce((a,x)=>a+(x.locked?0:+x.amt),0);
+   $('#pv2').innerHTML=`<table><tr><th>Month</th><th>Rows</th><th>Electricity (this file)</th><th>Now in system</th><th>Diesel / fuel (register)</th><th>Power and fuel total</th><th>Month taken from</th></tr>
+    ${pv.map(x=>`<tr style="${x.locked?'opacity:.5':''}"><td>${ml(x.month)}</td><td>${x.rows}</td><td class="rt">${n(x.amt,2)}</td><td class="rt">${x.existing==null?'-':n(x.existing,2)}</td><td class="rt">${x.fuel==null?'<span class="note">not uploaded</span>':n(x.fuel,2)}</td><td class="rt"><b>${n((+x.amt)+(+x.fuel||0),2)}</b></td><td class="l">${esc(x.src)}${x.locked?' · <span style="color:#ff9a90">month locked, skipped</span>':''}</td></tr>`).join('')}
+    <tr class="t"><td>Total</td><td>${pv.reduce((a,x)=>a+x.rows,0)}</td><td class="rt">${n(tot,2)}</td><td></td><td></td><td></td><td></td></tr></table>
+    <div class="note">Reversal rows are netted off against the original entry. Power and fuel = electricity from this file + diesel/fuel from the CP expense register (account POWER/FUEL/GENERATOR DIESEL). A month uploaded again is replaced, not added twice.</div>
+    <button class="btn p" id="cf2">Save electricity</button><button class="btn" id="cx2">Cancel</button>`;
+   $('#cx2').onclick=()=>{S.pendingP=null;$('#pv2').innerHTML=''};
+   $('#cf2').onclick=async()=>{try{const r=await R('power_upload_commit',{p:S.pendingP});S.pendingP=null;S.masters=await R('masters_list');VIEWS.upload();toast(`Saved electricity for ${r.months_saved} month(s)${r.months_locked?`, ${r.months_locked} locked month(s) skipped`:''}. File cleared from the app.`)}catch(er){toast(em(er),'err')}};
+  }catch(err){S.pendingP=null;$('#pv2').innerHTML=`<div class="err">${esc(em(err))}</div>`}};
 };
 function showPreview(pv){
  const rule=g=>g.category==='labour'&&g.shift<0?'Invoice month minus 1':'Posting month';

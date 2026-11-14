@@ -1,0 +1,1 @@
+-- cost_api.power_upload_preview(p jsonb), cost_api.power_upload_commit(p jsonb): electricity upload (applied as migration cost_06_power_upload)
