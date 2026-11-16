@@ -578,9 +578,9 @@ function adminTiles(){const a=[];
  if(isAdmin())a.push({id:'plinks',title:'PORTAL LINKS',subtitle:'Change app links',fn:()=>linksOpen()});
  return a}
 async function ipMismatch(){
- if(window._ipChk)return;const {data,error}=await C('allowed_ips_list');if(error)return;
+ if(!window._ipFresh)return;window._ipFresh=false;const {data,error}=await C('allowed_ips_list');if(error)return;
  const on=await C('ip_security_get');if(on.data===false)return;
- const my=String((data.find(x=>x.your_ip)||{}).your_ip||'').split('/')[0],rows=data.filter(x=>!x.your_ip);if(!my)return;window._ipChk=1;
+ const my=String((data.find(x=>x.your_ip)||{}).your_ip||'').split('/')[0],rows=data.filter(x=>!x.your_ip);if(!my||!rows.length)return;
  const mine=c=>String(c).split('/')[0]===my;if(rows.some(r=>r.active&&mine(r.cidr)))return;
  const defs=rows.filter(r=>r.kind!=='temporary'),body=$('#ipMisBody'),close=()=>$('#ipMisModal').classList.remove('show');
  body.innerHTML='<p class="ipsec-mismatch-intro">Your current network IP (<b>'+esc(my)+'</b>) is not in the Default IPs list.</p>'
@@ -638,7 +638,7 @@ function fillHome(){$('#homeUserName').textContent=ME.full_name||'—';$('#homeU
 async function afterLogin(withEntry){
  const {data,error}=await C('me');
  if(error){await sb.auth.signOut();show('login');const e=$('#loginError');e.textContent=cleanErr(error.message);e.classList.add('show');return}
- ME=data;await loadLinks();fillHome();
+ ME=data;window._ipFresh=!!withEntry;await loadLinks();fillHome();
  if(ME.must_change_password){await forcePw()}
  if(withEntry)runEntry(()=>show('home'));else show('home')}
 function forcePw(){return pwDialog(true)}
@@ -684,7 +684,7 @@ $('#loginForm').onsubmit=async ev=>{ev.preventDefault();const e=$('#loginError')
  if(error){e.textContent='Incorrect username or password. Please try again.';e.classList.add('show');return}
  try{const mr=await C('me');if(mr.data&&mr.data.department)$('#deptShow').value=mr.data.department.name||''}catch(_){}
  $('#pwd').value='';afterLogin(true)};
-$('#btnLogout').onclick=async()=>{window._ipChk=0;$('#ipMisModal').classList.remove('show');await sb.auth.signOut();ME=null;$('#deptShow').value='';$('#portal-frame').removeAttribute('src');show('login')};
+$('#btnLogout').onclick=async()=>{window._ipFresh=false;$('#ipMisModal').classList.remove('show');await sb.auth.signOut();ME=null;$('#deptShow').value='';$('#portal-frame').removeAttribute('src');show('login')};
 // ---------- IP Security ----------
 async function ipsOpen(){
  const {data,error}=await C('allowed_ips_list');if(error)return toast(cleanErr(error.message));
