@@ -161,7 +161,7 @@ sb.auth.getSession().then(({data})=>{if(data.session)start()});
 setTimeout(()=>{try{startLive()}catch(e){}},0);
 
 /* ---------------- nav ---------------- */
-const NAV=[['dash','Dashboard'],['entry','Daily entry'],['upload','Upload'],['sep'],['match','Labour match'],['daily','Daily view'],['lines','Repair and safety'],['power','Power and fuel'],['sep'],['expm','Expenses master'],['pfm','Power & fuel master'],['sep'],['reports','Reports'],['rules','Rules']];
+const NAV=[['dash','Dashboard'],['entry','Daily entry'],['upload','Upload'],['sep'],['match','Labour match'],['daily','Daily view'],['lines','Category wise expenses'],['power','Power and fuel'],['sep'],['expm','Expenses master'],['pfm','Power & fuel master'],['sep'],['reports','Reports'],['rules','Rules']];
 function buildNav(){$('#nav').innerHTML=NAV.map(x=>x[0]==='sep'?'<div class="sep"></div>':`<div data-v="${x[0]}" class="${x[0]===S.view?'on':''}">${x[1]}</div>`).join('');
  document.querySelectorAll('#nav div[data-v]').forEach(d=>d.onclick=()=>go(d.dataset.v))}
 const VIEWS={};
@@ -369,25 +369,33 @@ VIEWS.dash=async function(){
 VIEWS.entry=async function(){
  const day=S.entryDate||new Date().toISOString().slice(0,10);S.entryDate=day;
  const lines=await R('lines_list',{p_from:day,p_to:day,p_category:'all',p_source:'all'});
+ const y1=new Date(Date.parse(day)-365*864e5).toISOString().slice(0,10);
+ let hist=[];try{hist=await R('lines_list',{p_from:y1,p_to:day,p_category:'all',p_source:'all'})}catch(e){}
+ const lastBy={};hist.forEach(l=>{if(l.item_desc)lastBy[l.category+'|'+String(l.item_desc).toLowerCase()]=l});
+ const vendors=[...new Set(hist.map(l=>l.vendor_name).filter(Boolean))].sort(),items=[...new Set(hist.map(l=>l.item_desc).filter(Boolean))].sort();
+ const shift=k=>new Date(Date.parse(day)+k*864e5).toISOString().slice(0,10);
  const edit=lines.find(l=>l.id===S.editId&&l.source==='manual')||null;if(!edit)S.editId=null;
  const tot=lines.reduce((a,l)=>a+Number(l.amount),0),can=has('entry');
- $('#main').innerHTML=`<h3>Daily entry</h3>${can?`<div class="form">
+ $('#main').innerHTML=`<h3>Daily entry</h3><div class="tabs"><button class="btn" id="dpv" title="Previous day">◀</button><input type="date" id="vd" value="${day}"><button class="btn" id="dnx" title="Next day">▶</button><button class="btn" id="dtd">Today</button><span class="note">Pick the day to see or add its entries</span></div>${can?`<div class="form">
  <div class="f"><small>Date</small><input type="date" id="fd" value="${edit?edit.entry_date:day}"></div>
  <div class="f"><small>Category</small><select id="fc">${['repair','safety','consumable','fuel','labour'].map(c=>`<option value="${c}">${CAT[c]}</option>`).join('')}</select></div>
- <div class="f"><small>Vendor</small><input id="fv" value="${esc(edit?edit.vendor_name:'')}" placeholder="Vendor name"></div>
- <div class="f"><small>Item</small><input id="fi" value="${esc(edit?edit.item_desc:'')}" placeholder="Item or work done"></div>
+ <div class="f"><small>Vendor</small><input id="fv" list="dlv" value="${esc(edit?edit.vendor_name:'')}" placeholder="Vendor name" autocomplete="off"><datalist id="dlv">${vendors.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
+ <div class="f"><small>Item</small><input id="fi" list="dli" value="${esc(edit?edit.item_desc:'')}" placeholder="Item or work done" autocomplete="off"><datalist id="dli">${items.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
  <div class="f"><small>Qty</small><input id="fq" type="number" step="any" value="${edit&&edit.qty!=null?edit.qty:''}"></div>
  <div class="f"><small>Amount</small><input id="fa" type="number" step="any" value="${edit?edit.amount:''}"></div>
  <div class="f"><small>Bill no</small><input id="fb" value="${esc(edit?edit.bill_no:'')}"></div>
  <div class="f"><small>Remarks</small><input id="fr" value="${esc(edit?edit.remarks:'')}"></div></div>
  <button class="btn p" id="fs">${edit?'Update entry':'Save entry'}</button><button class="btn" id="fx">Clear</button>`:'<div class="warn">You can view entries but not add them.</div>'}
- <h3 style="margin-top:10px">Entries for <input type="date" id="vd" value="${day}"></h3>
+ <h3 style="margin-top:10px">Entries for ${dl(day)}-${day.slice(0,4)}</h3>
  <table><tr><th style="width:13%">Category</th><th>Vendor</th><th>Item</th><th style="width:7%">Qty</th><th style="width:12%">Amount</th><th style="width:9%">Source</th><th style="width:10%">Action</th></tr>
  ${lines.map(l=>`<tr><td>${CAT[l.category]}</td><td class="l">${esc(l.vendor_name)}</td><td class="l">${esc(l.item_desc)}${l.possible_dup_of?' <span class="bdg" title="Matches a register line">possible duplicate</span>':''}</td><td>${n(l.qty,2).replace(/\.00$/,'')}</td><td class="rt">${n(l.amount,2)}</td><td>${l.source==='manual'?'Manual':'Excel'}</td><td>${l.source==='manual'&&can?`<span class="ico" data-e="${l.id}" title="Edit">✎</span><span class="ico" data-d="${l.id}" title="Delete">✕</span>`:''}</td></tr>`).join('')||'<tr><td colspan="7">No entries for this date.</td></tr>'}
  <tr class="t"><td colspan="4">Day total</td><td class="rt">${n(tot,2)}</td><td colspan="2"></td></tr></table>
  <div class="note">Back-dated entry is allowed. Manual entries that match a register line are flagged when the month's Excel is uploaded.</div>`;
  if(edit)$('#fc').value=edit.category;
- $('#vd').onchange=e=>{S.entryDate=e.target.value;S.editId=null;VIEWS.entry()};
+ const go=d=>{if(!d)return;S.entryDate=d;S.editId=null;VIEWS.entry()};
+ $('#vd').onchange=e=>go(e.target.value);$('#dpv').onclick=()=>go(shift(-1));$('#dnx').onclick=()=>go(shift(1));$('#dtd').onclick=()=>go(new Date().toISOString().slice(0,10));
+ if(can){const fi=$('#fi');fi.onchange=()=>{const h=lastBy[$('#fc').value+'|'+fi.value.toLowerCase()]||lastBy[Object.keys(lastBy).find(k=>k.endsWith('|'+fi.value.toLowerCase()))||''];
+   if(!h)return;if(!$('#fv').value)$('#fv').value=h.vendor_name||'';if(!$('#fq').value&&h.qty!=null)$('#fq').placeholder='last '+n(h.qty,2).replace(/\.00$/,'');$('#fa').placeholder='last '+n(h.amount,2)}}
  if(can){
   $('#fx').onclick=()=>{S.editId=null;VIEWS.entry()};
   $('#fs').onclick=async()=>{try{await R('daily_save',{p:{id:S.editId,entry_date:$('#fd').value,category:$('#fc').value,vendor_name:$('#fv').value,item_desc:$('#fi').value,qty:$('#fq').value||null,amount:$('#fa').value,bill_no:$('#fb').value,remarks:$('#fr').value}});S.entryDate=$('#fd').value;S.editId=null;toast('Entry saved');VIEWS.entry()}catch(e){toast(em(e),'err')}};
@@ -535,39 +543,95 @@ VIEWS.match=async function(){
 };
 
 /* ---------------- daily view ---------------- */
+/* daily view: Year / Quarter / Month. The total opens into months, each month opens into days */
+const DV={fy:null,q:'all',mon:null,open:new Set()};
 VIEWS.daily=async function(){
- const d=await R('daily_view',{p_month:ms()});
- const keys=['labour','repair','safety','consumable','fuel','power'];
- const dsum=r=>keys.reduce((a,k)=>a+(Number(r[k])||0),0);
- const tot={mandays:0};keys.forEach(k=>tot[k]=0);d.rows.forEach(r=>{tot.mandays+=Number(r.mandays)||0;keys.forEach(k=>tot[k]+=Number(r[k])||0)});
- const all=keys.reduce((a,k)=>a+tot[k],0);const ed=has('tins_edit');
- $('#main').innerHTML=`<div class="tabs">${mpick()}<span class="note">Month tins: ${n(d.month_tins)}</span></div>
- ${d.payroll_ready?'':'<div class="warn">No payroll attendance for this month: mandays and daily labour are not available.</div>'}
- ${d.power_entered?'':'<div class="warn">Power (EB) not entered for this month.</div>'}
- <h3>Daily cost per tin</h3>
- <table><tr><th>Date</th><th>Mandays</th><th>Labour</th><th>Repair</th><th>Safety</th><th>Consumable</th><th>Fuel</th><th>Power</th><th>Tins</th><th>Per tin</th></tr>
- ${d.rows.map(r=>{const s=dsum(r);return `<tr><td>${dl(r.date)}</td><td>${n(r.mandays,1)}</td><td class="rt">${n(r.labour)}</td><td class="rt">${n(r.repair)}</td><td class="rt">${n(r.safety)}</td><td class="rt">${n(r.consumable)}</td><td class="rt">${n(r.fuel)}</td><td class="rt">${n(r.power)}</td><td>${ed?`<input type="number" min="0" data-t="${r.date}" value="${r.tins==null?'':r.tins}">`:n(r.tins)}</td><td>${r.tins>0?pt(s/r.tins):'-'}</td></tr>`}).join('')}
- <tr class="t"><td>Month</td><td>${n(tot.mandays,1)}</td>${keys.map(k=>`<td class="rt">${n(tot[k])}</td>`).join('')}<td>${n(d.month_tins)}</td><td>${d.month_tins>0?pt(all/d.month_tins):'-'}</td></tr></table>
- <div class="note">Labour per day = the contractor's Excel amount (payroll with GST until it is uploaded) spread by each day's payroll wage. Power (EB) is spread evenly across the month. Type tins per day if you have them; otherwise the month tins is used.</div>`;
- bindMonth(VIEWS.daily);
- document.querySelectorAll('input[data-t]').forEach(i=>i.onchange=async()=>{if(i.value==='')return;try{await R('tins_daily_save',{p_date:i.dataset.t,p_tins:+i.value});toast('Tins saved');VIEWS.daily()}catch(e){toast(em(e),'err')}});
+ if(!DS.all)DS.all=(await R('cost_years')).map(x=>x.slice(0,10));
+ if(!DV.fy){const y=+S.month.slice(0,4),mo=+S.month.slice(5,7),fyy=mo>=4?y:y-1;DV.fy=fyy+'-04-01';DV.mon=(mo+8)%12;
+  try{const z=await R('labour_match_period',{p_from:DV.fy,p_to:addM(DV.fy,11)});const k=z.months.map((m,i)=>m.payroll_ready?i:-1).filter(i=>i>=0);if(k.length)DV.mon=Math.max(...k)}catch(e){}
+  DV.q=Math.floor(DV.mon/3)+1}
+ const fys=DS.all.includes(DV.fy)?DS.all:[...DS.all,DV.fy].sort();
+ const qm=DV.q==='all'?[...Array(12).keys()]:[0,1,2].map(i=>(DV.q-1)*3+i);
+ if(DV.mon!=='all'&&!qm.includes(DV.mon))DV.mon='all';
+ const idx=DV.mon!=='all'?[DV.mon]:DV.q!=='all'?[(DV.q-1)*3,(DV.q-1)*3+1,(DV.q-1)*3+2]:[...Array(12).keys()];
+ const ds=await Promise.all(idx.map(i=>R('daily_view',{p_month:addM(DV.fy,i)})));
+ const keys=['labour','repair','safety','consumable','fuel','power'],ed=has('tins_edit'),one=idx.length===1;
+ const sum=rows=>{const o={mandays:0};keys.forEach(k=>o[k]=0);rows.forEach(r=>{o.mandays+=+r.mandays||0;keys.forEach(k=>o[k]+=+r[k]||0)});return o};
+ const cost=o=>keys.reduce((a,k)=>a+o[k],0);
+ const mr=ds.map(d=>({m:d.month,d,s:sum(d.rows),t:+d.month_tins||0}));
+ const all=sum(ds.flatMap(d=>d.rows)),allT=mr.reduce((a,x)=>a+x.t,0);
+ const cells=o=>`<td>${n(o.mandays,1)}</td>${keys.map(k=>`<td class="rt">${n(o[k])}</td>`).join('')}`;
+ const dayRows=x=>x.d.rows.map(r=>{const s=keys.reduce((a,k)=>a+(+r[k]||0),0);
+  return `<tr><td class="l" style="padding-left:${one?28:46}px">${dl(r.date)}</td><td>${n(r.mandays,1)}</td>${keys.map(k=>`<td class="rt">${n(r[k])}</td>`).join('')}<td>${ed?`<input type="number" min="0" data-t="${r.date}" value="${r.tins==null?'':r.tins}">`:n(r.tins)}</td><td>${r.tins>0?pt(s/r.tins):'-'}</td></tr>`}).join('');
+ const monthRow=x=>{const open=DV.open.has(x.m);
+  return `<tr class="click mrow" data-k="${x.m}"><td class="l" style="padding-left:${one?8:24}px"><b>${open?'▾':'▸'} ${ml(x.m)}</b></td>${cells(x.s)}<td>${n(x.t)}</td><td>${x.t>0?pt(cost(x.s)/x.t):'-'}</td></tr>`+(open?dayRows(x):'')};
+ const scope=one?ml(mr[0].m):DV.q!=='all'?'Q'+DV.q+' '+FYL(DV.fy):FYL(DV.fy);
+ let body;
+ if(one)body=monthRow(mr[0]);
+ else{const open=DV.open.has('ALL');
+  body=`<tr class="click mrow" data-k="ALL"><td class="l"><b>${open?'▾':'▸'} ${scope} · cumulative</b></td>${cells(all)}<td>${n(allT)}</td><td>${allT>0?pt(cost(all)/allT):'-'}</td></tr>`+(open?mr.map(monthRow).join(''):'')}
+ const pick=`<div class="tabs"><select id="dfy">${fys.map(y=>`<option value="${y}" ${y===DV.fy?'selected':''}>${FYL(y)}</option>`).join('')}</select>
+  <select id="dq"><option value="all">All quarters</option>${[1,2,3,4].map(q=>`<option value="${q}" ${DV.q===q?'selected':''}>Q${q} (${MON[(q*3+0)%12]}-${MON[(q*3+2)%12]})</option>`).join('')}</select>
+  <select id="dmn"><option value="all">All months</option>${qm.map(i=>`<option value="${i}" ${DV.mon!=='all'&&DV.mon===i?'selected':''}>${MON[(i+3)%12]}</option>`).join('')}</select>
+  <button class="btn" id="dex">Expand all</button><button class="btn" id="dcl">Collapse all</button></div>`;
+ $('#main').innerHTML=`${pick}
+ ${one&&!ds[0].payroll_ready?'<div class="warn">No payroll attendance for this month: mandays and daily labour are not available.</div>':''}
+ ${one&&!ds[0].power_entered?'<div class="warn">Power (EB) not entered for this month.</div>':''}
+ <h3>Daily cost per tin · ${scope}</h3>
+ <table><tr><th>${one?'Month / Date':'Period / Date'}</th><th>Mandays</th><th>Labour</th><th>Repair</th><th>Safety</th><th>Consumable</th><th>Fuel</th><th>Power</th><th>Tins</th><th>Per tin</th></tr>${body}</table>
+ <div class="note">Click a row to open it${one?' into days':': the cumulative row opens into months, and each month opens into days'}. Labour per day = the contractor's Excel amount (payroll with GST until it is uploaded) spread by each day's payroll wage. Power (EB) is spread evenly across the month. Type tins per day if you have them; otherwise the month tins is used for the month figure.</div>`;
+ const rerun=()=>VIEWS.daily();
+ $('#dfy').onchange=e=>{DV.fy=e.target.value;DV.open.clear();rerun()};
+ $('#dq').onchange=e=>{DV.q=e.target.value==='all'?'all':+e.target.value;DV.mon='all';DV.open.clear();rerun()};
+ $('#dmn').onchange=e=>{if(e.target.value==='all'){DV.mon='all'}else{DV.mon=+e.target.value;DV.q=Math.floor(DV.mon/3)+1}DV.open.clear();rerun()};
+ $('#dex').onclick=()=>{DV.open.add('ALL');mr.forEach(x=>DV.open.add(x.m));rerun()};
+ $('#dcl').onclick=()=>{DV.open.clear();rerun()};
+ document.querySelectorAll('tr.mrow').forEach(t=>t.onclick=()=>{const k=t.dataset.k;DV.open.has(k)?DV.open.delete(k):DV.open.add(k);rerun()});
+ document.querySelectorAll('input[data-t]').forEach(i=>i.onchange=async()=>{if(i.value==='')return;try{await R('tins_daily_save',{p_date:i.dataset.t,p_tins:+i.value});toast('Tins saved');rerun()}catch(e){toast(em(e),'err')}});
 };
 
 /* ---------------- lines (repair, safety, consumable, fuel) ---------------- */
+/* category wise expenses: Year / Quarter / Month and a category; each category opens into its lines */
+const CW={fy:null,q:'all',mon:null,cat:'all',open:new Set(),find:''};
 VIEWS.lines=async function(){
- const cat=S.lcat||'all',m0=ms(),e=new Date(+S.month.slice(0,4),+S.month.slice(5,7),0);
- const to=S.month+'-'+String(e.getDate()).padStart(2,'0');
- const lines=await R('lines_list',{p_from:m0,p_to:to,p_category:cat,p_source:'all'});
- const tot=lines.reduce((a,l)=>a+Number(l.amount),0);
- $('#main').innerHTML=`<div class="tabs">${mpick()}<select id="lc"><option value="all">All heads</option>${['repair','safety','consumable','fuel','labour'].map(c=>`<option value="${c}">${CAT[c]}</option>`).join('')}</select><input id="lq" placeholder="Search vendor or item" style="width:160px"></div>
- <h3>Day-wise lines</h3>
- <table><tr><th style="width:9%">Date</th><th style="width:12%">Head</th><th>Vendor</th><th>Item</th><th style="width:7%">Qty</th><th style="width:12%">Amount</th><th style="width:8%">Source</th></tr>
- <tbody id="lb"></tbody><tr class="t"><td colspan="5">Total <span id="lt"></span></td><td class="rt" id="ltt"></td><td></td></tr></table>`;
- $('#lc').value=cat;bindMonth(VIEWS.lines);$('#lc').onchange=e=>{S.lcat=e.target.value;VIEWS.lines()};
- const draw=()=>{const q=$('#lq').value.toLowerCase();const f=lines.filter(l=>!q||((l.vendor_name||'')+' '+(l.item_desc||'')).toLowerCase().includes(q));
-  $('#lb').innerHTML=f.map(l=>`<tr><td>${dl(l.entry_date)}</td><td>${CAT[l.category]}</td><td class="l">${esc(l.vendor_name)}</td><td class="l">${esc(l.item_desc)}</td><td>${n(l.qty,2).replace(/\.00$/,'')}</td><td class="rt">${n(l.amount,2)}</td><td>${l.source==='manual'?'Manual':'Excel'}</td></tr>`).join('')||'<tr><td colspan="7">No lines.</td></tr>';
-  $('#ltt').textContent=n(f.reduce((a,l)=>a+Number(l.amount),0),2);$('#lt').textContent='('+f.length+' lines)'};
- $('#lq').oninput=draw;draw();
+ if(!DS.all)DS.all=(await R('cost_years')).map(x=>x.slice(0,10));
+ if(!CW.fy){const y=+S.month.slice(0,4),mo=+S.month.slice(5,7),fyy=mo>=4?y:y-1;CW.fy=fyy+'-04-01';CW.mon=(mo+8)%12;CW.q=Math.floor(CW.mon/3)+1}
+ const fys=DS.all.includes(CW.fy)?DS.all:[...DS.all,CW.fy].sort();
+ const qm=CW.q==='all'?[...Array(12).keys()]:[0,1,2].map(i=>(CW.q-1)*3+i);
+ if(CW.mon!=='all'&&!qm.includes(CW.mon))CW.mon='all';
+ const [a,b]=CW.mon!=='all'?[CW.mon,CW.mon]:CW.q!=='all'?[(CW.q-1)*3,(CW.q-1)*3+2]:[0,11];
+ const from=addM(CW.fy,a),lastM=addM(CW.fy,b),e=new Date(+lastM.slice(0,4),+lastM.slice(5,7),0);
+ const to=lastM.slice(0,8)+String(e.getDate()).padStart(2,'0');
+ const lines=await R('lines_list',{p_from:from,p_to:to,p_category:CW.cat,p_source:'all'});
+ const scope=CW.mon!=='all'?ml(from):CW.q!=='all'?'Q'+CW.q+' '+FYL(CW.fy):FYL(CW.fy);
+ const cats=(CW.cat==='all'?['repair','safety','consumable','fuel','labour']:[CW.cat]);
+ const q=CW.find.toLowerCase(),ok=l=>!q||((l.vendor_name||'')+' '+(l.item_desc||'')).toLowerCase().includes(q);
+ const grp=c=>lines.filter(l=>l.category===c&&ok(l));
+ const sumL=a=>a.reduce((s,l)=>s+Number(l.amount),0);
+ const pick=`<div class="tabs"><select id="cfy">${fys.map(y=>`<option value="${y}" ${y===CW.fy?'selected':''}>${FYL(y)}</option>`).join('')}</select>
+  <select id="cq"><option value="all">All quarters</option>${[1,2,3,4].map(x=>`<option value="${x}" ${CW.q===x?'selected':''}>Q${x} (${MON[(x*3+0)%12]}-${MON[(x*3+2)%12]})</option>`).join('')}</select>
+  <select id="cmn"><option value="all">All months</option>${qm.map(i=>`<option value="${i}" ${CW.mon!=='all'&&CW.mon===i?'selected':''}>${MON[(i+3)%12]}</option>`).join('')}</select>
+  <select id="cc"><option value="all">All categories</option>${['repair','safety','consumable','fuel','labour'].map(c=>`<option value="${c}" ${CW.cat===c?'selected':''}>${CAT[c]}</option>`).join('')}</select>
+  <input id="cs" placeholder="Search vendor or item" style="width:170px" value="${esc(CW.find)}">
+  <button class="btn" id="cex">Expand all</button><button class="btn" id="ccl">Collapse all</button></div>`;
+ let rows='',tl=0,tc=0;
+ cats.forEach(c=>{const g=grp(c),s=sumL(g),open=CW.open.has(c)||(CW.cat!=='all'&&!CW.open.has('x'+c));tl+=g.length;tc+=s;
+  rows+=`<tr class="click crow" data-c="${c}"><td class="l" colspan="2"><b>${open?'▾':'▸'} ${CAT[c]}</b></td><td>${g.length} lines</td><td></td><td></td><td class="rt"><b>${n(s,2)}</b></td><td></td></tr>`;
+  if(open)rows+=g.map(l=>`<tr><td style="padding-left:22px">${dl(l.entry_date)}</td><td></td><td class="l">${esc(l.vendor_name)}</td><td class="l">${esc(l.item_desc)}${l.possible_dup_of?' <span class="bdg" title="Matches a register line">possible duplicate</span>':''}</td><td>${n(l.qty,2).replace(/\.00$/,'')}</td><td class="rt">${n(l.amount,2)}</td><td>${l.source==='manual'?'Manual':'Excel'}</td></tr>`).join('')||'<tr><td colspan="7" class="note">No lines.</td></tr>'});
+ $('#main').innerHTML=`${pick}<h3>Category wise expenses · ${scope}</h3>
+ <table><tr><th style="width:12%">Category / Date</th><th style="width:2%"></th><th>Vendor</th><th>Item</th><th style="width:7%">Qty</th><th style="width:13%">Amount</th><th style="width:8%">Source</th></tr>${rows}
+ <tr class="t"><td colspan="2">Total</td><td>${tl} lines</td><td></td><td></td><td class="rt">${n(tc,2)}</td><td></td></tr></table>
+ <div class="note">Click a category to see its lines, day by day. Labour here is the Excel invoice lines only; the labour counted in cost per tin is on the Labour match screen. A search narrows the lines and the totals.${lines.length>=3000?' Only the first 3,000 lines are shown: choose a shorter period.':''}</div>`;
+ const rerun=()=>VIEWS.lines();
+ $('#cfy').onchange=x=>{CW.fy=x.target.value;CW.open.clear();rerun()};
+ $('#cq').onchange=x=>{CW.q=x.target.value==='all'?'all':+x.target.value;CW.mon='all';CW.open.clear();rerun()};
+ $('#cmn').onchange=x=>{if(x.target.value==='all'){CW.mon='all'}else{CW.mon=+x.target.value;CW.q=Math.floor(CW.mon/3)+1}CW.open.clear();rerun()};
+ $('#cc').onchange=x=>{CW.cat=x.target.value;CW.open.clear();rerun()};
+ let tm=null;$('#cs').oninput=x=>{CW.find=x.target.value;clearTimeout(tm);tm=setTimeout(()=>{rerun();const i=$('#cs');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},250)};
+ $('#cex').onclick=()=>{cats.forEach(c=>{CW.open.add(c);CW.open.delete('x'+c)});rerun()};
+ $('#ccl').onclick=()=>{CW.open.clear();cats.forEach(c=>CW.open.add('x'+c));rerun()};
+ document.querySelectorAll('tr.crow').forEach(t=>t.onclick=()=>{const c=t.dataset.c,isOpen=CW.open.has(c)||(CW.cat!=='all'&&!CW.open.has('x'+c));
+  if(isOpen){CW.open.delete(c);CW.open.add('x'+c)}else{CW.open.add(c);CW.open.delete('x'+c)}rerun()});
 };
 
 /* ---------------- power and fuel ---------------- */
@@ -575,8 +639,8 @@ VIEWS.power=async function(){
  const rows=await R('power_list',{p_month:ms()});const ed=has('tins_edit');
  $('#main').innerHTML=`<div class="tabs">${mpick()}<span class="note">Financial year of the selected month</span></div>
  <h3>Power and fuel</h3>
- <table><tr><th>Month</th><th>Power (EB)</th><th>Fuel: diesel (register)</th><th>Total</th><th>Workbook total</th><th>Tins</th><th>Per tin</th></tr>
- ${rows.map(r=>{const tot=r.power_eb==null?null:Number(r.power_eb)+Number(r.fuel_diesel);return `<tr><td>${ml(r.month)}</td><td>${ed&&!r.locked?`<input type="number" min="0" step="any" data-p="${r.month}" value="${r.power_eb==null?'':r.power_eb}" placeholder="Enter EB amount">`:n(r.power_eb)}</td><td class="rt">${n(r.fuel_diesel,2)}</td><td class="rt">${n(tot,2)}</td><td class="rt">${n(r.workbook_total)}</td><td>${n(r.tins)}</td><td>${tot!=null&&r.tins>0?pt(tot/r.tins):(r.workbook_total&&r.tins>0?pt(r.workbook_total/r.tins):'-')}</td></tr>`}).join('')}</table>
+ <table><tr><th>Month</th><th>Power (EB)</th><th>Fuel: diesel (register)</th><th>Total</th><th>Tins</th><th>Per tin</th></tr>
+ ${rows.map(r=>{const tot=r.power_eb==null?null:Number(r.power_eb)+Number(r.fuel_diesel);return `<tr><td>${ml(r.month)}</td><td>${ed&&!r.locked?`<input type="number" min="0" step="any" data-p="${r.month}" value="${r.power_eb==null?'':r.power_eb}" placeholder="Enter EB amount">`:n(r.power_eb)}</td><td class="rt">${n(r.fuel_diesel,2)}</td><td class="rt">${n(tot,2)}</td><td>${n(r.tins)}</td><td>${tot!=null&&r.tins>0?pt(tot/r.tins):(r.workbook_total&&r.tins>0?pt(r.workbook_total/r.tins):'-')}</td></tr>`}).join('')}</table>
  <div class="note">Power (EB) is typed until the Excel 3 mapping is added. Until it is typed, the workbook figure is used where one exists.</div>`;
  bindMonth(VIEWS.power);
  document.querySelectorAll('input[data-p]').forEach(i=>i.onchange=async()=>{if(i.value==='')return;try{await R('power_save',{p_month:i.dataset.p,p_amount:+i.value});toast('Power saved');VIEWS.power()}catch(e){toast(em(e),'err')}});
