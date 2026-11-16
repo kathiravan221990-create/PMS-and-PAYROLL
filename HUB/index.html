@@ -516,6 +516,12 @@
   </div>
 </div></div>
 
+<div class="ipsec-overlay" id="ipMisModal"><div class="ipsec-card ipsec-card-sm">
+  <div class="ipsec-card-head"><h3>Network Not Recognised</h3></div>
+  <div id="ipMisBody" class="ipsec-mismatch-body"></div>
+  <button class="ipsec-ignore-btn" id="ipMisIgnore">Ignore For Now</button>
+</div></div>
+
 <div class="ipsec-overlay" id="plinksModal"><div class="ipsec-card">
   <div class="ipsec-card-head"><h3>🔗 Portal Links</h3><button class="plinks-back" id="plinksClose">← Home</button></div>
   <div class="ipsec-sub">Change a link here when an app moves to a new address. Tiles update for everyone after Save.</div>
@@ -571,8 +577,24 @@ function adminTiles(){const a=[];
  if(perm('core','manage_users'))a.push({id:'users',title:'USERS & ROLES',subtitle:'People, roles and passwords',fn:()=>usersOpen()});
  if(isAdmin())a.push({id:'plinks',title:'PORTAL LINKS',subtitle:'Change app links',fn:()=>linksOpen()});
  return a}
+async function ipMismatch(){
+ if(window._ipChk)return;const {data,error}=await C('allowed_ips_list');if(error)return;
+ const on=await C('ip_security_get');if(on.data===false)return;
+ const my=(data.find(x=>x.your_ip)||{}).your_ip,rows=data.filter(x=>!x.your_ip);if(!my)return;window._ipChk=1;
+ const mine=c=>String(c).split('/')[0]===my;if(rows.some(r=>r.active&&mine(r.cidr)))return;
+ const defs=rows.filter(r=>r.kind!=='temporary'),body=$('#ipMisBody'),close=()=>$('#ipMisModal').classList.remove('show');
+ body.innerHTML='<p class="ipsec-mismatch-intro">Your current network IP (<b>'+esc(my)+'</b>) is not in the Default IPs list.</p>'
+  +'<button class="btn-primary ipsec-add-new-default" id="ipMisTmp">Add as Temporary IP (expires in 6 hrs)</button>'
+  +'<button class="btn-primary ipsec-add-new-default" id="ipMisDef">Add as Default IP</button>'
+  +(defs.length?'<p class="ipsec-mismatch-intro" style="margin-top:16px">Office network actually changed? Replace a Default IP instead:</p>'+defs.map(r=>'<div class="ipsec-row"><div class="ipsec-row-main"><b>'+esc(r.cidr)+'</b><span>'+esc(r.label)+'</span></div><button class="ipsec-replace" data-r="'+r.id+'">Replace with current IP</button></div>').join(''):'');
+ $('#ipMisModal').classList.add('show');
+ const run=async(b,args)=>{b.disabled=true;const {error:e}=await C('allowed_ip_save',args);if(e){b.disabled=false;return toast(cleanErr(e.message))}close();toast('Saved')};
+ $('#ipMisTmp').onclick=function(){run(this,{p_id:null,p_cidr:my+'/32',p_label:'Auto-detected on login',p_active:true,p_temp:true})};
+ $('#ipMisDef').onclick=function(){run(this,{p_id:null,p_cidr:my+'/32',p_label:'My IP',p_active:true,p_temp:false})};
+ body.querySelectorAll('[data-r]').forEach(b=>b.onclick=function(){const r=rows.find(x=>String(x.id)===b.dataset.r);run(this,{p_id:r.id,p_cidr:my+'/32',p_label:r.label,p_active:true,p_temp:false})});
+ $('#ipMisIgnore').onclick=close}
 async function ipBtnSync(){const b=$('#btnIpSec');if(!b)return;const can=ME&&(isAdmin()||perm('core','manage_ips'));b.style.display=can?'':'none';if(!can)return;
- const r=await C('ip_security_get');const on=r.error?true:r.data!==false;b.querySelector('span').textContent=on?'🔒 IP Security':'🔓 IP Security: OFF';b.onclick=()=>ipsOpen()}
+ const r=await C('ip_security_get');const on=r.error?true:r.data!==false;b.querySelector('span').textContent=on?'🔒 IP Security':'🔓 IP Security: OFF';b.onclick=()=>ipsOpen();ipMismatch()}
 function buildTiles(){ipBtnSync();
  const grid=$('#tileGrid');grid.innerHTML='';
  visible().forEach(p=>{const t=document.createElement('button');t.className='tile';
@@ -662,7 +684,7 @@ $('#loginForm').onsubmit=async ev=>{ev.preventDefault();const e=$('#loginError')
  if(error){e.textContent='Incorrect username or password. Please try again.';e.classList.add('show');return}
  try{const mr=await C('me');if(mr.data&&mr.data.department)$('#deptShow').value=mr.data.department.name||''}catch(_){}
  $('#pwd').value='';afterLogin(true)};
-$('#btnLogout').onclick=async()=>{await sb.auth.signOut();ME=null;$('#deptShow').value='';$('#portal-frame').removeAttribute('src');show('login')};
+$('#btnLogout').onclick=async()=>{window._ipChk=0;$('#ipMisModal').classList.remove('show');await sb.auth.signOut();ME=null;$('#deptShow').value='';$('#portal-frame').removeAttribute('src');show('login')};
 // ---------- IP Security ----------
 async function ipsOpen(){
  const {data,error}=await C('allowed_ips_list');if(error)return toast(cleanErr(error.message));
