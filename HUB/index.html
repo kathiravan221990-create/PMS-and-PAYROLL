@@ -580,7 +580,7 @@ function adminTiles(){const a=[];
 async function ipMismatch(){
  if(window._ipChk)return;const {data,error}=await C('allowed_ips_list');if(error)return;
  const on=await C('ip_security_get');if(on.data===false)return;
- const my=(data.find(x=>x.your_ip)||{}).your_ip,rows=data.filter(x=>!x.your_ip);if(!my)return;window._ipChk=1;
+ const my=String((data.find(x=>x.your_ip)||{}).your_ip||'').split('/')[0],rows=data.filter(x=>!x.your_ip);if(!my)return;window._ipChk=1;
  const mine=c=>String(c).split('/')[0]===my;if(rows.some(r=>r.active&&mine(r.cidr)))return;
  const defs=rows.filter(r=>r.kind!=='temporary'),body=$('#ipMisBody'),close=()=>$('#ipMisModal').classList.remove('show');
  body.innerHTML='<p class="ipsec-mismatch-intro">Your current network IP (<b>'+esc(my)+'</b>) is not in the Default IPs list.</p>'
@@ -693,7 +693,7 @@ async function ipsOpen(){
  $('#ipSw').className=IPON?'on':'off';$('#ipSw').textContent=IPON?'ON':'OFF';
  $('#ipswD').textContent=IPON?'ON: only the allowed networks below can sign in (if none is listed, everyone can).':'OFF: sign in is allowed from any network. Your list is kept.';
  $('#ipSw').onclick=async()=>{if(IPON&&!confirm('Turn IP Security OFF?\n\nEveryone with a valid login will be able to sign in from any network until you turn it ON again.'))return;const {error:e}=await C('ip_security_set',{p_on:!IPON});if(e)return toast(cleanErr(e.message));toast('IP Security '+(IPON?'OFF':'ON'));ipBtnSync();ipsOpen()};
- const my=(data.find(x=>x.your_ip)||{}).your_ip||'unknown',rows=data.filter(x=>!x.your_ip);
+ const my=String((data.find(x=>x.your_ip)||{}).your_ip||'unknown').split('/')[0],rows=data.filter(x=>!x.your_ip);
  $('#ipsecSub').innerHTML='Your current IP: <b style="color:#e8bf5e">'+esc(my)+'</b>. '+(rows.some(r=>r.active)?'Only the networks below can log in (Administrators are exempt).':'<b>No network is listed, so logins are allowed from anywhere.</b>');
  const defs=rows.filter(r=>r.kind!=='temporary'),temps=rows.filter(r=>r.kind==='temporary');
  const fmt=iso=>{const m=Math.round((new Date(iso)-new Date())/60000);return m<=0?'Expired':m<60?'Expires in '+m+' min':'Expires in '+(m/60).toFixed(1)+' hr'};
