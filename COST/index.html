@@ -56,6 +56,7 @@ td input{width:100%;text-align:center}
 .ok{background:rgba(70,160,100,.14);border:0.5px solid #4c9a67;border-radius:8px;padding:5px 8px;margin-bottom:6px;color:#86d9a0}
 .err{background:rgba(220,90,80,.14);border:0.5px solid #c8534a;border-radius:8px;padding:5px 8px;margin-bottom:6px;color:#ff9a90}
 .ico{cursor:pointer;color:#d4ad55;margin:0 4px;font-size:14.5px}.ico:hover{color:#fff}
+.up2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.up2 .drop{margin-bottom:0}.up2 .drop{display:flex;flex-direction:column;align-items:center}.st:empty{display:none}.st{margin-top:8px;padding:5px 10px;border-radius:8px;border:1px solid #d4ad55;background:rgba(212,173,85,.12);color:#f1d58a;font-size:12.5px}.st.ok{border-color:#5fbf8f;color:#9be0bd;background:rgba(95,191,143,.1)}
 .drop.dz{border-color:#d4ad55!important;background:rgba(212,173,85,.14)!important}
 .pvb{background:#3a2e0b;border:1px solid #d4ad55;color:#f1d58a;border-radius:8px;padding:6px 12px;margin:6px 0 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px}.pvb .btn{padding:2px 10px;font-size:12px}tr.pvr td{background:rgba(212,173,85,.12)}
 .bdg{display:inline-block;border-radius:8px;padding:0 6px;font-size:11px;border:0.5px solid #8a6f2e;color:#f0cf6a}
@@ -429,9 +430,8 @@ const dstr=v=>{if(v instanceof Date)return new Date(v.getTime()+12*3600*1000).to
 VIEWS.upload=async function(){
  const up=S.masters.uploads||[];
  $('#main').innerHTML=`<h3>Upload monthly Excel</h3>
- <div class="drop" data-k="reg">${has('upload')?`Excel 1: CP expense register (labour, repair, safety, consumable and diesel/fuel accounts)<br><span class="note">Drag and drop the file, or the folder that holds it, onto this box.</span><br><br><input type="file" id="fl" accept=".xlsx,.xls,.csv">`:'You do not have permission to upload.'}</div>
- <div id="pv"></div>
- ${has('upload')?`<div class="drop" data-k="elec">Excel 2: Electrical expenses (electricity charges ledger). The month is read from the Details column; if there is no month there, the Posting Date is used.<br><span class="note">Drag and drop the file, or the folder that holds it, onto this box.</span><br><br><input type="file" id="fl2" accept=".xlsx,.xls,.csv"></div><div id="pv2"></div>`:''}
+ <div class="up2"><div class="drop" data-k="reg">${has('upload')?`Excel 1: CP expense register (labour, repair, safety, consumable and diesel/fuel accounts)<br><span class="note">Drag and drop the file, or the folder that holds it, onto this box.</span><br><br><input type="file" id="fl" accept=".xlsx,.xls,.csv"><div class="st" id="st1"></div>`:'You do not have permission to upload.'}</div>
+ ${has('upload')?`<div class="drop" data-k="elec">Excel 2: Electrical expenses (electricity charges ledger). The month is read from the Details column; if there is no month there, the Posting Date is used.<br><span class="note">Drag and drop the file, or the folder that holds it, onto this box.</span><br><br><input type="file" id="fl2" accept=".xlsx,.xls,.csv"><div class="st" id="st2"></div></div></div><div id="pv"></div><div id="pv2"></div>`:'</div><div id="pv"></div>'}
  <h3>Recent uploads</h3><table><tr><th>Date</th><th>File</th><th>Posted from</th><th>Posted to</th><th>Rows kept</th><th>Amount kept</th></tr>
  ${up.map(u=>`<tr><td>${dl(u.uploaded_at)}</td><td class="l">${esc(u.file_name)}</td><td>${u.posted_from?dl(u.posted_from):'-'}</td><td>${u.posted_to?dl(u.posted_to):'-'}</td><td>${n(u.rows_kept)}</td><td class="rt">${n(u.amount_kept,2)}</td></tr>`).join('')||'<tr><td colspan="6">No uploads yet.</td></tr>'}</table>
  <div class="note">The Excel is read in your browser. Only the rows for the mapped accounts are saved; the file itself is never stored and is cleared from the screen after saving.</div>`;
@@ -452,7 +452,7 @@ VIEWS.upload=async function(){
    S.pending={file_name:f.name,rows_in_file:rows.length,rows:keep,ignored:Object.values(ign)};
    e.target.value='';
    const pv=await R('upload_preview',{p:S.pending});S.pvData=pv;showPreview(pv);pvBar();
-  }catch(err){S.pending=null;S.pvData=null;pvBar();$('#pv').innerHTML=`<div class="err">${esc(em(err))}</div>`}};
+  }catch(err){S.pending=null;S.pvData=null;pvBar();setSt(1,'');$('#pv').innerHTML=`<div class="err">${esc(em(err))}</div>`}};
  const MONI={JAN:1,JANUARY:1,FEB:2,FEBRUARY:2,MAR:3,MARCH:3,APR:4,APRIL:4,MAY:5,JUN:6,JUNE:6,JUL:7,JULY:7,AUG:8,AUGUST:8,SEP:9,SEPT:9,SEPTEMBER:9,OCT:10,OCTOBER:10,NOV:11,NOVEMBER:11,DEC:12,DECEMBER:12};
  const MRE=/\b(JANUARY|FEBRUARY|MARCH|APRIL|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER|SEPT|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?![A-Z])\s*(\d{4})?/;
  const elecMonth=(det,pd)=>{const py=+pd.slice(0,4),pm=+pd.slice(5,7),k=String(det||'').toUpperCase().match(MRE);
@@ -483,7 +483,7 @@ VIEWS.upload=async function(){
    e.target.value='';
    S.pendingP={file_name:f.name,rows_in_file:rows.length,months};const payNote=skipPay?`<div class="note">${skipPay} payment row(s) (EB paid and their reversals) were ignored: only EB charges are taken.</div>`:'';
    const pv=await R('power_upload_preview',{p:S.pendingP});S.pvDataP={pv,payNote};showPowerPreview();pvBar();
-  }catch(err){S.pendingP=null;S.pvDataP=null;pvBar();$('#pv2').innerHTML=`<div class="err">${esc(em(err))}</div>`}};
+  }catch(err){S.pendingP=null;S.pvDataP=null;pvBar();setSt(2,'');$('#pv2').innerHTML=`<div class="err">${esc(em(err))}</div>`}};
 };
 const walkEntry=en=>new Promise(res=>{if(en.isFile)en.file(f=>res([f]),()=>res([]));else{const rd=en.createReader(),out=[];const nx=()=>rd.readEntries(async es=>{if(!es.length)return res(out);for(const x of es)out.push(...await walkEntry(x));nx()},()=>res(out));nx()}});
 async function xlKind(f){try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true,sheetRows:3});const r=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});const k=r.length?Object.keys(r[0]):[];
@@ -506,19 +506,22 @@ function bindDrop(){
   z.ondrop=e=>{e.preventDefault();e.stopPropagation();z.classList.remove('dz');if(!has('upload'))return;
    const items=[...(e.dataTransfer.items||[])].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean),direct=[...e.dataTransfer.files];
    (async()=>{let files=[];if(items.length){for(const en of items)files.push(...await walkEntry(en))}else files=direct;await routeFiles(files,z.dataset.k)})()}})}
+const setSt=(k,h)=>{const e=$('#st'+k);if(e)e.innerHTML=h||''};
 function showPowerPreview(){const {pv,payNote}=S.pvDataP;
+ setSt(2,`<b>${esc(S.pendingP?S.pendingP.file_name:'')}</b><br>${pv.length} month(s) read · ${n(pv.reduce((a,x)=>a+(x.locked?0:+x.amt),0),0)} electricity · <b>Preview, not saved</b>`);
    const tot=pv.reduce((a,x)=>a+(x.locked?0:+x.amt),0);
-   $('#pv2').innerHTML=payNote+`<table><tr><th>Month</th><th>Rows</th><th>Electricity (this file)</th><th>Now in system</th><th>Diesel / fuel (register)</th><th>Power and fuel total</th><th>Month taken from</th></tr>
+   $('#pv2').innerHTML=payNote+`<h3>Electricity: preview before saving</h3><table><tr><th>Month</th><th>Rows</th><th>Electricity (this file)</th><th>Now in system</th><th>Diesel / fuel (register)</th><th>Power and fuel total</th><th>Month taken from</th></tr>
     ${pv.map(x=>`<tr style="${x.locked?'opacity:.5':''}"><td>${ml(x.month)}</td><td>${x.rows}</td><td class="rt">${n(x.amt,2)}</td><td class="rt">${x.existing==null?'-':n(x.existing,2)}</td><td class="rt">${x.fuel==null?'<span class="note">not uploaded</span>':n(x.fuel,2)}</td><td class="rt"><b>${n((+x.amt)+(+x.fuel||0),2)}</b></td><td class="l">${esc(x.src)}${x.locked?' · <span style="color:#ff9a90">month locked, skipped</span>':''}</td></tr>`).join('')}
     <tr class="t"><td>Total</td><td>${pv.reduce((a,x)=>a+x.rows,0)}</td><td class="rt">${n(tot,2)}</td><td></td><td></td><td></td><td></td></tr></table>
     <div class="note">Reversal rows are netted off against the original entry. Power and fuel = electricity from this file + diesel/fuel from the CP expense register (account POWER/FUEL/GENERATOR DIESEL). A month uploaded again is replaced, not added twice.</div>
     <button class="btn p" id="cf2">Save electricity</button><button class="btn" id="cx2">Cancel</button>`;
-   $('#cx2').onclick=()=>{S.pendingP=null;S.pvDataP=null;pvBar();$('#pv2').innerHTML=''};
+   $('#cx2').onclick=()=>{S.pendingP=null;S.pvDataP=null;pvBar();setSt(2,'');$('#pv2').innerHTML=''};
    $('#cf2').onclick=async()=>{try{const r=await R('power_upload_commit',{p:S.pendingP});S.pendingP=null;S.pvDataP=null;pvBar();S.masters=await R('masters_list');VIEWS.upload();toast(`Saved electricity for ${r.months_saved} month(s)${r.months_locked?`, ${r.months_locked} locked month(s) skipped`:''}. File cleared from the app.`)}catch(er){toast(em(er),'err')}};
 }
 function showPreview(pv){
+ setSt(1,`<b>${esc(S.pending?S.pending.file_name:'')}</b><br>${n(pv.rows_kept)} rows kept · ${n(pv.amount_kept,0)} · <b>Preview, not saved</b>`);
  const rule=g=>g.category==='labour'&&g.shift<0?'Invoice month minus 1':'Posting month';
- $('#pv').innerHTML=`<h3>Preview before saving</h3>
+ $('#pv').innerHTML=`<h3>Register: preview before saving</h3>
  <div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="c"><b>${n(pv.rows_in_file)}</b><span>Rows in file</span></div><div class="c"><b>${n(pv.rows_kept)}</b><span>Rows kept</span></div><div class="c"><b>${n(pv.amount_kept,0)}</b><span>Amount kept</span></div><div class="c"><b>${n(pv.replaced_rows)}</b><span>Existing rows replaced (${pv.from?dl(pv.from)+' to '+dl(pv.to):'-'})</span></div></div>
  ${pv.unmapped_vendors.length?`<div class="warn">Labour vendors not in the contractor mapping (they will not match payroll): ${pv.unmapped_vendors.map(esc).join(', ')}. Add them in Rules.</div>`:''}
  ${pv.manual_possible_duplicates?`<div class="warn">${pv.manual_possible_duplicates} manual entries look the same as lines in this file and will be flagged as possible duplicates.</div>`:''}
@@ -526,7 +529,7 @@ function showPreview(pv){
  ${pv.groups.map(g=>`<tr><td>${ml(g.cost_month)}</td><td>${CAT[g.category]}</td><td>${esc(g.base)||'-'}</td><td>${n(g.rows)}</td><td class="rt">${n(g.amount,2)}</td><td>${rule(g)}</td></tr>`).join('')}</table>
  <div class="note">Other accounts not stored: ${pv.ignored.length} account heads, ${n(pv.ignored.reduce((a,x)=>a+x.n,0))} rows.</div>
  <div style="margin-top:6px"><button class="btn p" id="cf">Confirm and save</button><button class="btn" id="cn">Cancel</button></div>`;
- $('#cn').onclick=()=>{S.pending=null;S.pvData=null;pvBar();$('#pv').innerHTML='<div class="note">Cancelled. File cleared from the app.</div>'};
+ $('#cn').onclick=()=>{S.pending=null;S.pvData=null;pvBar();setSt(1,'');$('#pv').innerHTML='<div class="note">Cancelled. File cleared from the app.</div>'};
  $('#cf').onclick=async()=>{try{const r=await R('upload_commit',{p:S.pending});S.pending=null;S.pvData=null;pvBar();S.masters=await R('masters_list');VIEWS.upload();toast(`Saved ${n(r.rows_kept)} rows. File cleared from the app.`)}catch(e){toast(em(e),'err')}};
 }
 
