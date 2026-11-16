@@ -105,6 +105,8 @@ td input{width:100%;text-align:center}
 .mt td.mn::after{content:' ✎';color:#9a6b00}.mt td.pt{font-style:italic;color:#6b4e00}
 
 .side .sbl{background:#fff;border-radius:8px;padding:8px 10px;margin:4px 8px 8px;box-shadow:0 2px 8px rgba(0,0,0,.3)}.side .sbl img{width:100%;height:auto;max-height:92px;object-fit:contain;display:block}
+
+.side #nav .ni{display:inline-block;width:20px;margin-right:6px;text-align:center;font-size:14px}
 </style>
 </head>
 <body>
@@ -172,7 +174,8 @@ setTimeout(()=>{try{startLive()}catch(e){}},0);
 
 /* ---------------- nav ---------------- */
 const NAV=[['dash','Dashboard'],['entry','Daily entry'],['upload','Upload'],['sep'],['match','Labour match'],['daily','Daily view'],['lines','Category wise expenses'],['power','Power and fuel'],['sep'],['expm','Expenses master'],['pfm','Power & fuel master'],['sep'],['reports','Reports'],['rules','Rules']];
-function buildNav(){$('#nav').innerHTML=NAV.map(x=>x[0]==='sep'?'<div class="sep"></div>':`<div data-v="${x[0]}" class="${x[0]===S.view?'on':''}">${x[1]}</div>`).join('');
+const NAVICO={dash:'📊',entry:'✏️',upload:'📤',match:'👷',daily:'📅',lines:'🗂️',power:'⚡',expm:'📒',pfm:'🔌',reports:'📑',rules:'⚖️'};
+function buildNav(){$('#nav').innerHTML=NAV.map(x=>x[0]==='sep'?'<div class="sep"></div>':`<div data-v="${x[0]}" class="${x[0]===S.view?'on':''}"><span class="ni">${NAVICO[x[0]]||'•'}</span>${x[1]}</div>`).join('');
  document.querySelectorAll('#nav div[data-v]').forEach(d=>d.onclick=()=>go(d.dataset.v))}
 const VIEWS={};
 /* ---- unsaved Excel preview: shown in the tabs that list lines until it is saved or cancelled ---- */
