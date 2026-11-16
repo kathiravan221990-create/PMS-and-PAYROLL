@@ -479,22 +479,58 @@ function showPreview(pv){
 }
 
 /* ---------------- labour match ---------------- */
+/* labour match: Year / Quarter / Month; each month is one collapsed row, open it to see the contractors */
+const LM={fy:null,q:'all',mon:null,open:new Set()};
 VIEWS.match=async function(){
- const d=await R('labour_match',{p_month:ms()});
- const st={invoice_pending:'<td class="w">Invoice pending</td>',no_payroll:'<td class="w">No payroll data</td>',ok:'<td class="g">Matched</td>'};
- const rows=d.rows,sum=k=>rows.reduce((a,r)=>a+(Number(r[k])||0),0);
- $('#main').innerHTML=`<div class="tabs">${mpick()}<span class="note">Month = labour (work) month. RMV invoices are shifted back one month.</span></div>
- ${d.payroll_ready?'':'<div class="warn">Payroll is not calculated for this month, so there is nothing to match yet.</div>'}
- ${d.unmapped_invoiced?`<div class="warn">${n(d.unmapped_invoiced,2)} of labour invoices are from vendors not in the contractor mapping.</div>`:''}
- <h3>Labour: invoice vs payroll</h3>
- <table><tr><th>Contractor</th><th>Invoiced (register)</th><th>Payroll (before GST)</th><th>Payroll (with GST)</th><th>Difference</th><th>Diff %</th><th>Status</th></tr>
- ${rows.map(r=>`<tr class="click" data-b="${esc(r.base_name)}"><td class="l">${esc(r.base_name)}</td><td class="rt">${n(r.invoiced,2)}</td><td class="rt">${n(r.payroll_subtotal,2)}</td><td class="rt">${n(r.payroll_with_gst,2)}</td><td class="rt ${r.difference?'r':''}">${n(r.difference,2)}</td><td>${r.diff_pct==null?'-':r.diff_pct+'%'}</td>${st[r.state]}</tr>`).join('')}
- <tr class="t"><td>Total</td><td class="rt">${n(sum('invoiced'),2)}</td><td class="rt">${n(sum('payroll_subtotal'),2)}</td><td class="rt">${n(sum('payroll_with_gst'),2)}</td><td class="rt">${n(sum('difference'),2)}</td><td></td><td></td></tr></table>
- <div class="note">Click a contractor to see its daily labour. Difference = invoiced minus payroll before GST.</div><div id="dd"></div>`;
- bindMonth(VIEWS.match);
- document.querySelectorAll('tr[data-b]').forEach(t=>t.onclick=async()=>{try{
-  const x=await R('labour_daily',{p_month:ms(),p_base:t.dataset.b});
-  $('#dd').innerHTML=`<h3 style="margin-top:8px">${esc(t.dataset.b)}: daily labour</h3>`+(x.rows.length?`<table><tr><th>Date</th><th>Mandays</th><th>Labour (allocated)</th></tr>${x.rows.map(r=>`<tr><td>${dl(r.date)}</td><td>${n(r.mandays,1)}</td><td class="rt">${n(r.amount,2)}</td></tr>`).join('')}<tr class="t"><td>Total</td><td>${n(x.rows.reduce((a,r)=>a+Number(r.mandays),0),1)}</td><td class="rt">${n(x.rows.reduce((a,r)=>a+Number(r.amount||0),0),2)}</td></tr></table>`:'<div class="warn">No payroll attendance for this contractor and month.</div>');
+ if(!DS.all)DS.all=(await R('cost_years')).map(x=>x.slice(0,10));
+ if(!LM.fy){const y=+S.month.slice(0,4),mo=+S.month.slice(5,7),fyy=mo>=4?y:y-1;LM.fy=fyy+'-04-01';LM.mon=(mo+8)%12;
+  try{const z=await R('labour_match_period',{p_from:LM.fy,p_to:addM(LM.fy,11)});const k=z.months.map((m,i)=>m.payroll_ready?i:-1).filter(i=>i>=0);if(k.length)LM.mon=Math.max(...k)}catch(e){}
+  LM.q=Math.floor(LM.mon/3)+1}
+ const fys=DS.all.includes(LM.fy)?DS.all:[...DS.all,LM.fy].sort();
+ const qm=LM.q==='all'?[...Array(12).keys()]:[0,1,2].map(i=>(LM.q-1)*3+i);
+ if(LM.mon!=='all'&&!qm.includes(LM.mon))LM.mon='all';
+ const [a,b]=LM.mon!=='all'?[LM.mon,LM.mon]:LM.q!=='all'?[(LM.q-1)*3,(LM.q-1)*3+2]:[0,11];
+ const d=await R('labour_match_period',{p_from:addM(LM.fy,a),p_to:addM(LM.fy,b)});
+ const num=v=>v==null?0:Number(v),has_=v=>v!=null;
+ const vis=r=>has_(r.invoiced)||has_(r.payroll_with_gst)||has_(r.payroll_subtotal);
+ const agg=rows=>{const o={inv:null,sub:null,gst:null,diff:null,used:null};
+  rows.forEach(r=>{if(has_(r.invoiced))o.inv=(o.inv||0)+num(r.invoiced);if(has_(r.payroll_subtotal))o.sub=(o.sub||0)+num(r.payroll_subtotal);if(has_(r.payroll_with_gst))o.gst=(o.gst||0)+num(r.payroll_with_gst);if(has_(r.difference))o.diff=(o.diff||0)+num(r.difference);
+   const u=has_(r.invoiced)?num(r.invoiced):has_(r.payroll_with_gst)?num(r.payroll_with_gst):null;if(u!=null)o.used=(o.used||0)+u});return o};
+ const pct=(x,y)=>x==null||!y?'-':(x*100/y).toFixed(2)+'%';
+ const cst={invoice_pending:'<td class="w">Payroll used</td>',no_payroll:'<td class="w">No payroll data</td>',ok:'<td class="g">Matched</td>',no_data:'<td>-</td>'};
+ const mst=rows=>!rows.length?'<td>-</td>':rows.every(r=>has_(r.invoiced))?'<td class="g">Excel in</td>':rows.some(r=>has_(r.invoiced))?'<td class="w">Part Excel</td>':'<td class="w">Payroll only</td>';
+ const months=d.months.map(m=>({m:m.month,mm:m,rows:m.rows.filter(vis)}));
+ const all=agg(months.flatMap(x=>x.rows));
+ const unm=d.months.reduce((s,m)=>s+num(m.unmapped_invoiced),0);
+ const scope=LM.mon!=='all'?ml(addM(LM.fy,LM.mon)):LM.q!=='all'?'Q'+LM.q+' '+FYL(LM.fy):FYL(LM.fy);
+ const pick=`<div class="tabs"><select id="lfy">${fys.map(y=>`<option value="${y}" ${y===LM.fy?'selected':''}>${FYL(y)}</option>`).join('')}</select>
+  <select id="lq"><option value="all">All quarters</option>${[1,2,3,4].map(q=>`<option value="${q}" ${LM.q===q?'selected':''}>Q${q} (${MON[(q*3+0)%12]}-${MON[(q*3+2)%12]})</option>`).join('')}</select>
+  <select id="lmn"><option value="all">All months</option>${qm.map(i=>`<option value="${i}" ${LM.mon!=='all'&&LM.mon===i?'selected':''}>${MON[(i+3)%12]}</option>`).join('')}</select>
+  <button class="btn" id="lex">Expand all</button><button class="btn" id="lcl">Collapse all</button>
+  <span class="note">Labour counted in cost per tin = the Excel amount for a contractor once uploaded, otherwise payroll with GST. RMV invoices are shifted back one month.</span></div>`;
+ const body=months.map(x=>{const g=agg(x.rows),open=LM.open.has(x.m),draft=x.mm.payroll_status==='Draft';
+  const head=`<tr class="click mrow" data-m="${x.m}"><td class="l"><b>${open?'▾':'▸'} ${ml(x.m)}</b>${draft&&x.mm.payroll_ready?' <span class="note">payroll draft</span>':''}</td><td class="rt">${n(g.inv,2)}</td><td class="rt">${n(g.sub,2)}</td><td class="rt">${n(g.gst,2)}</td><td class="rt ${g.diff?'r':''}">${n(g.diff,2)}</td><td>${pct(g.diff,g.gst)}</td><td class="rt">${n(g.used,2)}</td>${mst(x.rows)}</tr>`;
+  const kids=open?x.rows.map(r=>`<tr class="click crow" data-b="${esc(r.base_name)}" data-m="${x.m}"><td class="l" style="padding-left:26px">${esc(r.base_name)}</td><td class="rt">${n(r.invoiced,2)}</td><td class="rt">${n(r.payroll_subtotal,2)}</td><td class="rt">${n(r.payroll_with_gst,2)}</td><td class="rt ${r.difference?'r':''}">${n(r.difference,2)}</td><td>${r.diff_pct==null?'-':r.diff_pct+'%'}</td><td class="rt">${n(has_(r.invoiced)?r.invoiced:r.payroll_with_gst,2)}</td>${cst[r.state]||'<td>-</td>'}</tr>`).join(''):'';
+  return head+kids}).join('');
+ $('#main').innerHTML=`${pick}
+ ${months.some(x=>x.mm.payroll_ready)?'':'<div class="warn">No payroll attendance in this period yet, so there is nothing to match.</div>'}
+ ${unm?`<div class="warn">${n(unm,2)} of labour invoices are from vendors not in the contractor mapping.</div>`:''}
+ <h3>Labour: Excel vs payroll (with GST) · ${scope}</h3>
+ <table><tr><th>Month / Contractor</th><th>Excel (register)</th><th>Payroll (before GST)</th><th>Payroll (with GST)</th><th>Difference</th><th>Diff %</th><th>Labour counted</th><th>Status</th></tr>
+ ${body}
+ <tr class="t"><td>Total ${scope}</td><td class="rt">${n(all.inv,2)}</td><td class="rt">${n(all.sub,2)}</td><td class="rt">${n(all.gst,2)}</td><td class="rt">${n(all.diff,2)}</td><td>${pct(all.diff,all.gst)}</td><td class="rt">${n(all.used,2)}</td><td></td></tr></table>
+ <div class="note">Difference = Excel minus payroll with GST, counted only for contractors that have both. Click a month to open its contractors; click a contractor for its daily labour.</div><div id="dd"></div>`;
+ const rerun=()=>VIEWS.match();
+ $('#lfy').onchange=e=>{LM.fy=e.target.value;LM.open.clear();rerun()};
+ $('#lq').onchange=e=>{LM.q=e.target.value==='all'?'all':+e.target.value;LM.mon='all';LM.open.clear();rerun()};
+ $('#lmn').onchange=e=>{if(e.target.value==='all'){LM.mon='all'}else{LM.mon=+e.target.value;LM.q=Math.floor(LM.mon/3)+1}LM.open.clear();rerun()};
+ $('#lex').onclick=()=>{months.forEach(x=>{if(x.rows.length)LM.open.add(x.m)});rerun()};
+ $('#lcl').onclick=()=>{LM.open.clear();rerun()};
+ document.querySelectorAll('tr.mrow').forEach(t=>t.onclick=()=>{const k=t.dataset.m;LM.open.has(k)?LM.open.delete(k):LM.open.add(k);rerun()});
+ document.querySelectorAll('tr.crow').forEach(t=>t.onclick=async()=>{try{
+  const x=await R('labour_daily',{p_month:t.dataset.m,p_base:t.dataset.b});
+  $('#dd').innerHTML=`<h3 style="margin-top:8px">${esc(t.dataset.b)} · ${ml(t.dataset.m)}: daily labour</h3>`+(x.rows.length?`<table><tr><th>Date</th><th>Mandays</th><th>Labour (allocated)</th></tr>${x.rows.map(r=>`<tr><td>${dl(r.date)}</td><td>${n(r.mandays,1)}</td><td class="rt">${n(r.amount,2)}</td></tr>`).join('')}<tr class="t"><td>Total</td><td>${n(x.rows.reduce((a,r)=>a+Number(r.mandays),0),1)}</td><td class="rt">${n(x.rows.reduce((a,r)=>a+Number(r.amount||0),0),2)}</td></tr></table>`:'<div class="warn">No payroll attendance for this contractor and month.</div>');
+  $('#dd').scrollIntoView({behavior:'smooth',block:'nearest'});
  }catch(e){toast(em(e),'err')}});
 };
 
@@ -506,13 +542,13 @@ VIEWS.daily=async function(){
  const tot={mandays:0};keys.forEach(k=>tot[k]=0);d.rows.forEach(r=>{tot.mandays+=Number(r.mandays)||0;keys.forEach(k=>tot[k]+=Number(r[k])||0)});
  const all=keys.reduce((a,k)=>a+tot[k],0);const ed=has('tins_edit');
  $('#main').innerHTML=`<div class="tabs">${mpick()}<span class="note">Month tins: ${n(d.month_tins)}</span></div>
- ${d.payroll_ready?'':'<div class="warn">No payroll for this month: mandays and daily labour are not available.</div>'}
+ ${d.payroll_ready?'':'<div class="warn">No payroll attendance for this month: mandays and daily labour are not available.</div>'}
  ${d.power_entered?'':'<div class="warn">Power (EB) not entered for this month.</div>'}
  <h3>Daily cost per tin</h3>
  <table><tr><th>Date</th><th>Mandays</th><th>Labour</th><th>Repair</th><th>Safety</th><th>Consumable</th><th>Fuel</th><th>Power</th><th>Tins</th><th>Per tin</th></tr>
  ${d.rows.map(r=>{const s=dsum(r);return `<tr><td>${dl(r.date)}</td><td>${n(r.mandays,1)}</td><td class="rt">${n(r.labour)}</td><td class="rt">${n(r.repair)}</td><td class="rt">${n(r.safety)}</td><td class="rt">${n(r.consumable)}</td><td class="rt">${n(r.fuel)}</td><td class="rt">${n(r.power)}</td><td>${ed?`<input type="number" min="0" data-t="${r.date}" value="${r.tins==null?'':r.tins}">`:n(r.tins)}</td><td>${r.tins>0?pt(s/r.tins):'-'}</td></tr>`}).join('')}
  <tr class="t"><td>Month</td><td>${n(tot.mandays,1)}</td>${keys.map(k=>`<td class="rt">${n(tot[k])}</td>`).join('')}<td>${n(d.month_tins)}</td><td>${d.month_tins>0?pt(all/d.month_tins):'-'}</td></tr></table>
- <div class="note">Labour per day = invoiced amount spread by each day's payroll wage. Power (EB) is spread evenly across the month. Type tins per day if you have them; otherwise the month tins is used.</div>`;
+ <div class="note">Labour per day = the contractor's Excel amount (payroll with GST until it is uploaded) spread by each day's payroll wage. Power (EB) is spread evenly across the month. Type tins per day if you have them; otherwise the month tins is used.</div>`;
  bindMonth(VIEWS.daily);
  document.querySelectorAll('input[data-t]').forEach(i=>i.onchange=async()=>{if(i.value==='')return;try{await R('tins_daily_save',{p_date:i.dataset.t,p_tins:+i.value});toast('Tins saved');VIEWS.daily()}catch(e){toast(em(e),'err')}});
 };
@@ -792,7 +828,7 @@ VIEWS.reports=async function(){
   const k=rows.length+2;rows.push(['Total',{formula:`SUM(B2:B${k-1})`,result:d.rows.reduce((a,r)=>a+r.py_amount,0)},d.tins_py||0,{formula:`SUM(D2:D${k-1})`,result:d.rows.reduce((a,r)=>a+(r.py_per_tin||0),0)},{formula:`SUM(E2:E${k-1})`,result:d.rows.reduce((a,r)=>a+r.cy_amount,0)},d.tins_cy||0,{formula:`SUM(G2:G${k-1})`,result:d.rows.reduce((a,r)=>a+(r.cy_per_tin||0),0)},{formula:`D${k}-G${k}`,result:0}]);
   previewSheet('Cost per tin',`Cost_per_tin_${S.month}_${S.mode}.xlsx`,{name:'Cost per tin',head:['Expense','Amount PY','Tins PY','Per tin PY','Amount CY','Tins CY','Per tin CY','Variance (PY - CY)'],rows,widths:[24,16,14,12,16,14,12,16]})}catch(e){toast(em(e),'err')}};
  $('#r2').onclick=async()=>{try{const d=await R('labour_match',{p_month:ms()});
-  const rows=d.rows.map((r,i)=>{const x=i+2;return [r.base_name,r.invoiced==null?'':Number(r.invoiced),r.payroll_subtotal==null?'':Number(r.payroll_subtotal),r.payroll_with_gst==null?'':Number(r.payroll_with_gst),{formula:`IF(AND(ISNUMBER(B${x}),ISNUMBER(C${x})),B${x}-C${x},"")`,result:r.difference==null?'':Number(r.difference)},{formula:`IF(AND(ISNUMBER(C${x}),C${x}<>0,ISNUMBER(B${x})),(B${x}-C${x})/C${x},"")`,result:r.diff_pct==null?'':r.diff_pct/100},r.state==='ok'?'Matched':r.state==='no_payroll'?'No payroll data':'Invoice pending']});
+  const rows=d.rows.map((r,i)=>{const x=i+2;return [r.base_name,r.invoiced==null?'':Number(r.invoiced),r.payroll_subtotal==null?'':Number(r.payroll_subtotal),r.payroll_with_gst==null?'':Number(r.payroll_with_gst),{formula:`IF(AND(ISNUMBER(B${x}),ISNUMBER(D${x})),B${x}-D${x},"")`,result:r.difference==null?'':Number(r.difference)},{formula:`IF(AND(ISNUMBER(D${x}),D${x}<>0,ISNUMBER(B${x})),(B${x}-D${x})/D${x},"")`,result:r.diff_pct==null?'':r.diff_pct/100},r.state==='ok'?'Matched':r.state==='no_payroll'?'No payroll data':r.state==='no_data'?'-':'Payroll used']});
   previewSheet('Labour match',`Labour_match_${S.month}.xlsx`,{name:'Labour match',head:['Contractor','Invoiced (register)','Payroll (before GST)','Payroll (with GST)','Difference','Diff %','Status'],rows,widths:[22,18,20,18,16,10,18]})}catch(e){toast(em(e),'err')}};
  $('#r3').onclick=async()=>{try{const d=await R('daily_view',{p_month:ms()});
   const rows=d.rows.map((r,i)=>{const x=i+2;return [dl(r.date),Number(r.mandays)||0,Number(r.labour)||0,Number(r.repair)||0,Number(r.safety)||0,Number(r.consumable)||0,Number(r.fuel)||0,Number(r.power)||0,r.tins==null?'':Number(r.tins),{formula:`IF(AND(ISNUMBER(I${x}),I${x}>0),SUM(C${x}:H${x})/I${x},"")`,result:r.tins>0?(['labour','repair','safety','consumable','fuel','power'].reduce((a,k)=>a+(Number(r[k])||0),0))/r.tins:''}]});
