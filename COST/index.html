@@ -642,6 +642,9 @@ VIEWS.daily=async function(){
 const CW={fy:null,q:'all',mon:null,cat:'all',open:new Set(),find:''};
 VIEWS.lines=async function(){
  if(!DS.all)DS.all=(await R('cost_years')).map(x=>x.slice(0,10));
+ const PV0=pvLines();
+ if(PV0&&PV0.rows.length&&CW.pvFor!==S.pending.file_name){CW.pvFor=S.pending.file_name;const y=+PV0.to.slice(0,4),mo=+PV0.to.slice(5,7);CW.fy=(mo>=4?y:y-1)+'-04-01';CW.mon=(mo+8)%12;CW.q=Math.floor(CW.mon/3)+1;CW.cat='all';CW.find='';CW.open.clear()}
+ if(!PV0)CW.pvFor=null;
  if(!CW.fy){const y=+S.month.slice(0,4),mo=+S.month.slice(5,7),fyy=mo>=4?y:y-1;CW.fy=fyy+'-04-01';CW.mon=(mo+8)%12;CW.q=Math.floor(CW.mon/3)+1}
  const fys=DS.all.includes(CW.fy)?DS.all:[...DS.all,CW.fy].sort();
  const qm=CW.q==='all'?[...Array(12).keys()]:[0,1,2].map(i=>(CW.q-1)*3+i);
@@ -652,6 +655,7 @@ VIEWS.lines=async function(){
  let lines=await R('lines_list',{p_from:from,p_to:to,p_category:CW.cat,p_source:'all'});
  const PV=pvLines();
  if(PV){lines=lines.filter(l=>!(l.source==='excel'&&l.entry_date>=PV.from&&l.entry_date<=PV.to)).concat(PV.rows.filter(r=>r.entry_date>=from&&r.entry_date<=to&&(CW.cat==='all'||r.category===CW.cat))).sort((x,y)=>x.entry_date<y.entry_date?-1:x.entry_date>y.entry_date?1:0)}
+ const pvNote=PV&&!PV.rows.length?`<div class="note" style="margin:4px 0;color:#f1d58a">Preview from ${esc(S.pending.file_name)}: no rows matched the mapped accounts, so there is nothing to show here.</div>`:PV?`<div class="note" style="margin:4px 0;color:#f1d58a">Preview from ${esc(S.pending.file_name)}: ${PV.rows.length} lines posted ${dl(PV.from)} to ${dl(PV.to)}${PV.rows.some(r=>r.entry_date>=from&&r.entry_date<=to)?'.':'. None of them fall in the period chosen above: pick the months they cover.'}</div>`:'';
  const scope=CW.mon!=='all'?ml(from):CW.q!=='all'?'Q'+CW.q+' '+FYL(CW.fy):FYL(CW.fy);
  const cats=(CW.cat==='all'?['repair','safety','consumable','fuel','labour']:[CW.cat]);
  const q=CW.find.toLowerCase(),ok=l=>!q||((l.vendor_name||'')+' '+(l.item_desc||'')).toLowerCase().includes(q);
@@ -667,7 +671,7 @@ VIEWS.lines=async function(){
  cats.forEach(c=>{const g=grp(c),s=sumL(g),open=CW.open.has(c)||(CW.cat!=='all'&&!CW.open.has('x'+c));tl+=g.length;tc+=s;
   rows+=`<tr class="click crow" data-c="${c}"><td class="l" colspan="2"><b>${open?'▾':'▸'} ${CAT[c]}</b></td><td>${g.length} lines</td><td></td><td></td><td class="rt"><b>${n(s,2)}</b></td><td></td></tr>`;
   if(open)rows+=g.map(l=>`<tr${l.source==='preview'?' class="pvr"':''}><td style="padding-left:22px">${dl(l.entry_date)}</td><td></td><td class="l">${esc(l.vendor_name)}</td><td class="l">${esc(l.item_desc)}${l.possible_dup_of?' <span class="bdg" title="Matches a register line">possible duplicate</span>':''}</td><td>${n(l.qty,2).replace(/\.00$/,'')}</td><td class="rt">${n(l.amount,2)}</td><td>${l.source==='manual'?'Manual':l.source==='preview'?'<span class="bdg">Preview</span>':'Excel'}</td></tr>`).join('')||'<tr><td colspan="7" class="note">No lines.</td></tr>'});
- $('#main').innerHTML=`${pick}<h3>Category wise expenses · ${scope}</h3>
+ $('#main').innerHTML=`${pick}${pvNote}<h3>Category wise expenses · ${scope}</h3>
  <table><tr><th style="width:12%">Category / Date</th><th style="width:2%"></th><th>Vendor</th><th>Item</th><th style="width:7%">Qty</th><th style="width:13%">Amount</th><th style="width:8%">Source</th></tr>${rows}
  <tr class="t"><td colspan="2">Total</td><td>${tl} lines</td><td></td><td></td><td class="rt">${n(tc,2)}</td><td></td></tr></table>
  <div class="note">Click a category to see its lines, day by day. Labour here is the Excel invoice lines only; the labour counted in cost per tin is on the Labour match screen. A search narrows the lines and the totals.${lines.length>=3000?' Only the first 3,000 lines are shown: choose a shorter period.':''}</div>`;
