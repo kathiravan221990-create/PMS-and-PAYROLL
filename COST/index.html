@@ -1,6 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script id="gate-guard">
+/* ACCESS MODE GUARD (Gateway of CP): 1 = Gateway only, 2 = Gateway + CP WORKSPACE + CP NEXUS, 3 = everything opens.
+   An app opened on its own is stopped in mode 1 and mode 2; it still opens inside its parent system.
+   If the setting cannot be read, the app opens normally (never locks people out). */
+(function(){
+  try { if (window.parent !== window) return; } catch(e){ return; }
+  var SBU='https://iubckxdeiasflbwaoutd.supabase.co', KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1YmNreGRlaWFzZmxid2FvdXRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MTYyMzEsImV4cCI6MjEwMjA5MjIzMX0.s1PYd8OzHTLDks7Ao4a1OYIpifrXKtkE1BguwBfx_GM';
+  var GW='https://kathiravan221990-create.github.io/CP-NEXUS/GATEWAY/', NX='https://kathiravan221990-create.github.io/PMS-and-PAYROLL/HUB/';
+  var root=document.documentElement; root.style.visibility='hidden';
+  function open_(){ root.style.visibility=''; }
+  function stop(mode){
+    var via = mode==='1' ? 'Gateway of CP' : 'CP WORKSPACE', url = mode==='1' ? GW : NX;
+    var html='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 20%,#12304f,#07121f);font-family:Arial,sans-serif;color:#eef3f8"><div style="width:min(560px,92vw);text-align:center;padding:44px 40px;border-radius:22px;background:rgba(13,32,51,.88);border:1px solid rgba(224,188,99,.4)"><div style="font-size:44px">&#128274;</div><h1 style="margin:14px 0 8px;font-size:24px;color:#e0bc63;letter-spacing:.04em">PLEASE OPEN VIA '+via.toUpperCase()+'</h1><p style="margin:0 0 26px;color:#b9c8d6;font-size:16px;line-height:1.5">This application no longer opens on its own.<br>Sign in once at '+via+' and open it from your tile.</p><a href="'+url+'" style="display:inline-block;background:linear-gradient(180deg,#f0cf7a,#c9a13f);color:#1b1405;text-decoration:none;font-weight:700;padding:13px 30px;border-radius:12px;font-size:16px">Go to '+via+'</a></div></div>';
+    function put(){ document.body.innerHTML=html; document.title='Open via '+via; open_(); }
+    if(document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+  }
+  var done=false; setTimeout(function(){ if(!done){ done=true; open_(); } }, 2500);
+  fetch(SBU+'/rest/v1/rpc/get_access_mode',{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:'{}'})
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(m){ if(done) return; done=true; if(m==='1'||m==='2') stop(m); else open_(); })
+    .catch(function(){ if(!done){ done=true; open_(); } });
+})();
+</script>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CP COST PER TIN</title>
