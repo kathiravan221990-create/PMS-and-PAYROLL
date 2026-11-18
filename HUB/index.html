@@ -241,6 +241,8 @@
     font-family:inherit,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji";
   }
   .btn-logout:hover{ filter:brightness(1.08); box-shadow:0 0 12px rgba(240,205,110,.45); }
+  .btn-gw{ margin-left:10px; border:1px solid #8fd6ff !important; background:linear-gradient(180deg,#8fd6ff,#2f8fd8) !important; color:#031d33 !important; box-shadow:0 4px 14px rgba(47,143,216,.35); }
+  .btn-gw:hover{ box-shadow:0 0 14px rgba(111,190,255,.6); }
 
   .home-body{ position:relative; z-index:2; padding:40px 32px 60px; flex:1; }
   .home-body h2{ font-size:22px; color:var(--silver-bright); }
@@ -544,9 +546,9 @@
     <div class="home-user">
       <div class="home-user-pill"><b id="homeUserName">—</b><span id="homeUserDept">—</span></div>
       <button class="btn-ipsec" id="btnIpSec" style="display:none"><span>🔒 IP Security</span></button>
-      <button class="btn-logout" id="btnGwHome" onclick="location.assign('https://kathiravan221990-create.github.io/CP-NEXUS/GATEWAY/')">🏠 Gateway of CP</button>
       <button class="btn-logout" id="btnChPw">🔑 Change Password</button>
       <button class="btn-logout" id="btnLogout">🚪 Log Out</button>
+      <button class="btn-logout btn-gw" id="btnGwHome" onclick="location.assign('https://kathiravan221990-create.github.io/CP-NEXUS/GATEWAY/')">🏠 Gateway of CP</button>
     </div>
   </div>
   <div class="home-body">
