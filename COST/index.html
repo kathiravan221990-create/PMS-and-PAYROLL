@@ -122,6 +122,7 @@ td input{width:100%;text-align:center}
 .mt{table-layout:auto;width:auto;min-width:100%}
 .mt th,.mt td{color:#000;border:1px solid #6b7280;padding:2px 6px;font-size:12px;white-space:nowrap}
 .mt td{background:#E8E8E8}.mt th.h1{background:#0B76A0;color:#fff}.mt th.h2{background:#F6C6AD}.mt th.x{background:transparent;border:0}
+.mt td.mm{background:#C1E5F5}.cptb{display:flex;align-items:center;gap:10px;margin:12px 0 6px;padding:5px 10px;border:1px solid #8a6f2e;border-radius:8px;background:rgba(7,17,42,.6);color:#d4ad55;cursor:pointer}.cptb .btn{margin:0}
 .mt td.qc{background:#D9F2D0;font-weight:600}.mt td.mc{background:#DCEAF7}.mt td.sp{background:#D1D1D1;text-align:left}
 .mt td.sk{background:#C1E5F5}.mt td.g1{background:#D1D1D1}
 .mt tr.tt td{background:#0B76A0;color:#fff;font-weight:700}
@@ -740,7 +741,8 @@ const MFULL=['April','May','June','July','August','September','October','Novembe
 const MABBR=['AMJ','JAS','OND','JFM'];
 const MCAT=[['labour','labour cost'],['power_fuel','Power & fuel'],['consumable','Consumable'],['repair','Repair & Maintenance'],['safety','Safety']];
 const MPAL={blue:'0B76A0',peach:'F6C6AD',green:'D9F2D0',navy:'DCEAF7',grey1:'D1D1D1',grey0:'E8E8E8',sky:'C1E5F5'};
-const MS={fy:null,fys:[],basis:'same',data:null,map:{}};
+const MS={fy:null,fys:[],basis:'same',data:null,map:{},cpt:false};
+try{MS.cpt=localStorage.getItem('cpMasterCpt')==='1'}catch(e){}
 try{MS.basis=localStorage.getItem('cpMasterBasis')==='billed'?'billed':'same'}catch(e){}
 const lastDay=m=>new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7),0)).toISOString().slice(0,10);
 const sumN=a=>{const v=a.filter(x=>x!=null&&!isNaN(x));return v.length?v.reduce((s,x)=>s+Number(x),0):null};
@@ -808,8 +810,9 @@ function masterBind(v){
   i.onblur=()=>fin(true)});
 }
 function masterRender(v){
- const body=v==='expm'?expTable():pfTable();
+ const body=v==='expm'?expTable()+`<div class="cptb" id="cptt"><b>${MS.cpt?'▾':'▸'} Cost per tin, month wise</b><span class="btn">${MS.cpt?'Collapse':'Expand'}</span><span class="note">All five expense rows of the month over the month's tins. Also the third sheet of the Excel download.</span></div>`+(MS.cpt?cptTable():''):pfTable();
  $('#main').innerHTML=masterBar(v)+`<div class="mtw">${body}</div>`;masterBind(v);
+ const tg=$('#cptt');if(tg)tg.onclick=()=>{MS.cpt=!MS.cpt;try{localStorage.setItem('cpMasterCpt',MS.cpt?'1':'0')}catch(e){}masterRender(v);if(MS.cpt){const t=$('#cptt');if(t)t.scrollIntoView({block:'start'})}};
 }
 function expTable(){
  const a=MS.data.fy,b=MS.data.prev,mp=expModel(b),mc=expModel(a);
@@ -832,6 +835,20 @@ function expTable(){
  }
  h+=tot('FINANCIAL YEAR TOTAL',yTotals(mp),yTotals(mc))+'</table>';
  return h;
+}
+function cptTable(){
+ const a=MS.data.fy,b=MS.data.prev,mp=expModel(b),mc=expModel(a);
+ const mx=X=>sumN(Object.values(X.cat));
+ const cpt=(e,t)=>fx(divN(e,t),3);
+ const rowv=(P,C)=>{const pe=mx(P),ce=mx(C),c1=divN(pe,P.tins),c2=divN(ce,C.tins);return `<td>${fx(pe)}</td><td>${fx(P.tins)}</td><td>${fx(c1,3)}</td><td>${fx(ce)}</td><td>${fx(C.tins)}</td><td>${fx(c2,3)}</td><td>${c1==null||c2==null?'-':(c1-c2).toFixed(3)}</td>`};
+ const tot=(label,P,C)=>{const c1=divN(P.exp,P.tins),c2=divN(C.exp,C.tins);return `<tr class="tt"><td colspan="2">${label}</td><td>${fx(P.exp)}</td><td>${fx(P.tins)}</td><td>${fx(c1,3)}</td><td>${fx(C.exp)}</td><td>${fx(C.tins)}</td><td>${fx(c2,3)}</td><td>${c1==null||c2==null?'-':(c1-c2).toFixed(3)}</td></tr>`};
+ let h=`<table class="mt"><tr><th colspan="2" class="x"></th><th colspan="3" class="h1">${FYL(b).replace('FY','FINANCIAL YEAR')}</th><th colspan="3" class="h1">${FYL(a).replace('FY','FINANCIAL YEAR')}</th><th class="h1">VARIANCE</th></tr>
+ <tr>${['QUARTER','MONTH','EXPENSES','TINS','COST/TIN','EXPENSES','TINS','COST/TIN','PY - CY'].map(x=>`<th class="h2">${x}</th>`).join('')}</tr>`;
+ for(let q=0;q<4;q++){
+  for(let i=0;i<3;i++){const k=q*3+i;h+='<tr>'+(i===0?`<td class="qc" rowspan="3">Q${q+1}</td>`:'')+`<td class="mm">${MFULL[k].toUpperCase()}</td>`+rowv(mp[k],mc[k])+'</tr>'}
+  h+=tot('Q'+(q+1)+' TOTAL',qTotals(mp,q),qTotals(mc,q));
+ }
+ return h+tot('FINANCIAL YEAR TOTAL',yTotals(mp),yTotals(mc))+'</table>';
 }
 function pfTable(){
  const a=MS.data.fy,b=MS.data.prev,P=mths(b),C=mths(a);
@@ -950,6 +967,36 @@ async function masterExcel(){
  w2.getCell('A25').value=`Power: ${MS.basis==='same'?'same month (electricity shown in the month named on the bill)':'billed month (electricity shown one month later, as in the old workbook)'}. Diesel is the same in both. Production from PMS unless typed.`;
  w2.getCell('A25').font={name:'Segoe UI',size:10,italic:true};
  w2.getRow(2).height=26;w2.getRow(18).height=26;
+
+ /* ---- COST PER TIN MONTH WISE ---- */
+ const w3=wb.addWorksheet('COST PER TIN MONTH WISE');
+ [11.9,14,16,16,13.8,16,16,13.8,14].forEach((w,i)=>w3.getColumn(i+1).width=w);
+ const mxx=X=>sumN(Object.values(X.cat));
+ w3.mergeCells('C1:E1');w3.mergeCells('F1:H1');
+ put(w3,'C1',FYL(b).replace('FY','FINANCIAL YEAR'),{f:MPAL.blue,w:1});put(w3,'F1',FYL(a).replace('FY','FINANCIAL YEAR'),{f:MPAL.blue,w:1});put(w3,'I1','VARIANCE',{f:MPAL.blue,w:1});
+ ['D','E','G','H'].forEach(c=>st(w3.getCell(c+'1'),{f:MPAL.blue,w:1}));
+ ['QUARTER','MONTH','EXPENSES','TINS','COST/TIN','EXPENSES','TINS','COST/TIN','PY - CY'].forEach((t,i)=>put(w3,L[i]+'2',t,{f:MPAL.peach,wrap:1}));
+ w3.getRow(2).height=26;
+ {const A3=expModel(b),B3=expModel(a);let r3=3;const qr=[];
+  for(let q=0;q<4;q++){const f0=r3;
+   for(let i=0;i<3;i++){const k=q*3+i,rr=r3++,PE=mxx(A3[k]),CE=mxx(B3[k]),PT=A3[k].tins,CT=B3[k].tins;
+    put(w3,'B'+rr,MFULL[k].toUpperCase(),{f:MPAL.sky});
+    put(w3,'C'+rr,PE,{f:MPAL.grey0,nf:NFI});put(w3,'D'+rr,PT,{f:MPAL.grey0,nf:NFI});fm(w3,'E'+rr,`IFERROR(C${rr}/D${rr},0)`,divN(PE,PT)||0,{f:MPAL.grey0,nf:'#,##0.000'});
+    put(w3,'F'+rr,CE,{f:MPAL.grey0,nf:NFI});put(w3,'G'+rr,CT,{f:MPAL.grey0,nf:NFI});fm(w3,'H'+rr,`IFERROR(F${rr}/G${rr},0)`,divN(CE,CT)||0,{f:MPAL.grey0,nf:'#,##0.000'});
+    fm(w3,'I'+rr,`E${rr}-H${rr}`,(divN(PE,PT)||0)-(divN(CE,CT)||0),{f:MPAL.grey0,nf:'#,##0.000'})}
+   w3.mergeCells(`A${f0}:A${f0+2}`);put(w3,'A'+f0,'Q'+(q+1),{f:MPAL.green});st(w3.getCell('A'+(f0+1)),{f:MPAL.green});st(w3.getCell('A'+(f0+2)),{f:MPAL.green});
+   const tr=r3++,QP=qTotals(A3,q),QC=qTotals(B3,q),B={f:MPAL.blue,w:1,b:1};
+   w3.mergeCells(`A${tr}:B${tr}`);put(w3,'A'+tr,`Q${q+1} TOTAL`,B);st(w3.getCell('B'+tr),B);
+   fm(w3,'C'+tr,`SUM(C${f0}:C${f0+2})`,QP.exp||0,{...B,nf:NFI});fm(w3,'D'+tr,`SUM(D${f0}:D${f0+2})`,QP.tins||0,{...B,nf:NFI});fm(w3,'E'+tr,`IFERROR(C${tr}/D${tr},0)`,divN(QP.exp,QP.tins)||0,{...B,nf:'#,##0.000'});
+   fm(w3,'F'+tr,`SUM(F${f0}:F${f0+2})`,QC.exp||0,{...B,nf:NFI});fm(w3,'G'+tr,`SUM(G${f0}:G${f0+2})`,QC.tins||0,{...B,nf:NFI});fm(w3,'H'+tr,`IFERROR(F${tr}/G${tr},0)`,divN(QC.exp,QC.tins)||0,{...B,nf:'#,##0.000'});
+   fm(w3,'I'+tr,`E${tr}-H${tr}`,(divN(QP.exp,QP.tins)||0)-(divN(QC.exp,QC.tins)||0),{...B,nf:'#,##0.000'});qr.push(tr)}
+  const tr=r3++,YP=yTotals(A3),YC3=yTotals(B3),B={f:MPAL.blue,w:1,b:1},sm=c=>qr.map(x=>c+x).join('+');
+  w3.mergeCells(`A${tr}:B${tr}`);put(w3,'A'+tr,'FINANCIAL YEAR TOTAL',B);st(w3.getCell('B'+tr),B);
+  fm(w3,'C'+tr,sm('C'),YP.exp||0,{...B,nf:NFI});fm(w3,'D'+tr,sm('D'),YP.tins||0,{...B,nf:NFI});fm(w3,'E'+tr,`IFERROR(C${tr}/D${tr},0)`,divN(YP.exp,YP.tins)||0,{...B,nf:'#,##0.000'});
+  fm(w3,'F'+tr,sm('F'),YC3.exp||0,{...B,nf:NFI});fm(w3,'G'+tr,sm('G'),YC3.tins||0,{...B,nf:NFI});fm(w3,'H'+tr,`IFERROR(F${tr}/G${tr},0)`,divN(YC3.exp,YC3.tins)||0,{...B,nf:'#,##0.000'});
+  fm(w3,'I'+tr,`E${tr}-H${tr}`,(divN(YP.exp,YP.tins)||0)-(divN(YC3.exp,YC3.tins)||0),{...B,nf:'#,##0.000'});
+  w3.getCell('A'+(tr+2)).value='Cost per tin = all five expense rows of the month (labour, power and fuel, consumable, repair, safety) divided by the month\'s production. Variance = previous year minus current year.';
+  w3.getCell('A'+(tr+2)).font={name:'Segoe UI',size:10,italic:true}}
  const buf=await wb.xlsx.writeBuffer();const el=document.createElement('a');
  el.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
  el.download=`Cost_Masters_${FYL(a).replace(/\s/g,'')}_${MS.basis==='same'?'same-month':'billed-month'}.xlsx`;el.click();setTimeout(()=>URL.revokeObjectURL(el.href),4000);toast('Excel downloaded');
