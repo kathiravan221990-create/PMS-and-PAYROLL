@@ -647,7 +647,7 @@ function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.re
 function runLoading(title,sub,ms,then){$('#loadingTitle').textContent=title;$('#loadingSub').textContent=sub;show('loading');setTimeout(then,ms)}
 function visible(){return PORTALS.filter(canSee).filter(p=>linkOf(p).active)}
 function adminTiles(){const a=[];
- if(perm('core','manage_users'))a.push({id:'users',title:'USERS & ROLES',subtitle:'People, roles and passwords',fn:()=>usersOpen()});
+ if(perm('core','manage_users'))a.push({id:'users',title:'USERS & ROLES',subtitle:'People and roles (view only)',fn:()=>usersOpen()});
  if(isAdmin())a.push({id:'plinks',title:'PORTAL LINKS',subtitle:'Change app links',fn:()=>linksOpen()});
  if(isAdmin()||perm('core','manage_ips'))a.push({id:'ipsec',title:'IP SECURITY',subtitle:'Allowed networks',fn:()=>ipsOpen()});
  return a}
@@ -872,6 +872,12 @@ async function usersOpen(note){
     usersOpen({t:'Saved changes for '+login(u)+'.'})}catch(e){sv.disabled=false;show(cleanErr(e.message),null,true)}};
   let arm=false;rp.onclick=async()=>{if(!arm){arm=true;rp.textContent='Click again to confirm';setTimeout(()=>{arm=false;rp.textContent='Reset password'},4000);return}const pw=genPw();try{await invokeUser({action:'reset_password',user_id:id,password:pw});show('New temporary password for '+login(u)+' (shown once):',pw)}catch(e){show(cleanErr(e.message),null,true)}arm=false;rp.textContent='Reset password'};
   let arm2=false;dl.onclick=async()=>{if(!arm2){arm2=true;dl.textContent='Click again to delete';setTimeout(()=>{arm2=false;dl.textContent='Delete'},4000);return}try{await invokeUser({action:'delete_user',user_id:id});usersOpen({t:'Deleted '+login(u)+'. The login is removed and cannot sign in again.'})}catch(e){show(cleanErr(e.message),null,true)}arm2=false;dl.textContent='Delete'}})}
+/* View only: users are added and changed in Gateway of CP, not here */
+ {const hint=document.createElement('div');hint.className='u-note';hint.style.cssText='color:#ffe08c;font-weight:700';hint.textContent='View only. To add or change users, use Gateway of CP.';box.insertBefore(hint,box.firstChild);
+  ['#uAdd','#uTg'].forEach(q=>{const e=box.querySelector(q);if(e)e.remove()});
+  box.querySelectorAll('.u-add').forEach(e=>e.remove());
+  box.querySelectorAll('.u-tbl input,.u-tbl select').forEach(e=>{e.disabled=true});
+  box.querySelectorAll('.u-tbl tr').forEach(tr=>{const c=tr.lastElementChild;if(c)c.style.display='none'})}
 $('#usersClose').onclick=()=>$('#usersModal').classList.remove('show');
 // ---------- start ----------
 (async()=>{const {data:s}=await sb.auth.getSession();if(s.session)afterLogin(false)})();
