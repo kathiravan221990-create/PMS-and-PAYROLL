@@ -716,7 +716,7 @@ async function afterLogin(withEntry){
  const {data,error}=await C('me');
  if(error){await sb.auth.signOut();show('login');const e=$('#loginError');e.textContent=cleanErr(error.message);e.classList.add('show');return}
  ME=data;window._ipFresh=!!withEntry;await loadLinks();fillHome();
- if(ME.must_change_password){await forcePw()}
+ /* password is changed only in Gateway of CP */
  if(withEntry)runEntry(()=>show('home'));else show('home')}
 function forcePw(){return pwDialog(true)}
 function pwDialog(forced){return new Promise(res=>{
@@ -732,7 +732,7 @@ function pwDialog(forced){return new Promise(res=>{
   if(error){er.textContent=error.message;er.classList.add('show');return}
   const d=await C('password_done');if(d.error){er.textContent=cleanErr(d.error.message);er.classList.add('show');return}
   if(ME)ME.must_change_password=false;m.classList.remove('show');toast('Password changed');res()}})}
-$('#btnChPw').onclick=()=>pwDialog(false);
+$('#btnChPw').style.display='none'; /* password is changed only in Gateway of CP */
 // ---------- eye icon on password fields (same as NEXUS) ----------
 const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
   const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
