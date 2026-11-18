@@ -476,6 +476,7 @@
 #usersModal .ipsec-card-head h3{ font-size:22px; }
 #usersModal.show{display:flex}
 #pwModal.show{display:flex;z-index:120}
+.u-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px;border-bottom:1px solid rgba(111,177,232,.18)}.u-tab{background:none;border:0;border-bottom:3px solid transparent;color:#cfe3f5;padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}.u-tab.on{color:#e8bf5e;border-bottom-color:#e8bf5e}
 .u-bar{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 10px;align-items:center}
 .u-bar input,.u-bar select,.u-add input,.u-add select,.u-tbl input:not([type=checkbox]),.u-tbl select{padding:9px 11px;border-radius:8px;border:1px solid rgba(216,166,55,.4);background:rgba(6,16,27,.6);color:#eef3f8;font-size:13px;outline:none;font-family:inherit}
 .u-bar .grow{flex:1;min-width:200px}
@@ -602,7 +603,7 @@
 </div></div>
 <div class="ipsec-overlay" id="usersModal"><div class="ipsec-card">
   <div class="ipsec-card-head"><h3>👥 Users &amp; Roles</h3><button class="plinks-back" id="usersClose">← Home</button></div>
-  <div class="ipsec-sub">One login for everyone. Add people and manage names, departments and passwords here. The department sets which apps a person can open. Portal Links controls which tiles each department sees. To change one person's role in an app, open Portal Links, then Access.</div>
+  <div class="ipsec-sub">One login for everyone. People and roles are added and changed in Gateway of CP. This screen is for viewing. Portal Links controls which tiles each department sees.</div>
   <div id="usersBody" style="margin-top:6px"></div>
 </div></div>
 <div class="ipsec-overlay" id="pwModal"><div class="ipsec-card" style="max-width:420px">
@@ -838,46 +839,37 @@ const APPS=[
  {m:'cost',label:'COST PER TIN',roles:[['manager','Manager'],['admin','Administrator'],['accounts','Accounts']]}];
 function genPw(){const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';let s='';const r=new Uint32Array(10);crypto.getRandomValues(r);r.forEach(v=>s+=a[v%a.length]);return s}
 const invokeUser=async b=>{const {data,error}=await sb.functions.invoke('create-user',{body:b});if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(_){}throw new Error(m)}if(data&&data.error)throw new Error(data.error);return data};
-async function usersOpen(note){
+async function usersOpen(tabNow){
  const box=$('#usersBody');box.textContent='Loading…';$('#usersModal').classList.add('show');
- const [ru,rd]=await Promise.all([C('users_list'),C('departments_list')]);
+ const [ru,rd,rp]=await Promise.all([C('users_list'),C('departments_list'),C('portal_links_list')]);
  if(ru.error){box.innerHTML='<div class="u-note err">'+esc(cleanErr(ru.error.message))+'</div>';return}
- const us=ru.data||[],ds=(rd.data||[]).filter(d=>d.active!==false);
- const ropts=(app,sel)=>'<option value="">— none —</option>'+app.roles.map(r=>'<option value="'+r[0]+'"'+(r[0]===sel?' selected':'')+'>'+esc(r[1])+'</option>').join('');
- const dopts=sel=>ds.map(d=>'<option value="'+d.id+'"'+(d.id===sel?' selected':'')+'>'+esc(d.name)+'</option>').join('');
+ const us=ru.data||[],ds=(rd.data||[]).filter(d=>d.active!==false),links=(rp.data||[]).filter(l=>l.active!==false);
  const login=u=>(u.email||'').split('@')[0];
- box.innerHTML='<div id="uNote"></div><div class="u-bar"><input class="grow" id="uq" type="search" placeholder="Search name or User ID…"><select id="usf"><option value="">All status</option><option value="on">Active</option><option value="off">Disabled</option></select><button class="u-btn" id="uTg">+ Add person</button></div>'
- +'<div class="u-add" id="uAdd"><div><label>User ID</label><input id="nId" placeholder="e.g. ravi.k" autocomplete="off" autocapitalize="off"></div><div><label>Full name</label><input id="nName" placeholder="e.g. Ravi Kumar"></div><div><label>Department</label><select id="nDept">'+dopts(0)+'</select></div>'
-  +'<div><label>Temporary password</label><input id="nPw" value="'+genPw()+'" autocomplete="off"></div><div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><button class="u-btn ghost" id="nGen">New random password</button><button class="u-btn" id="nOk">Add person</button></div></div>'
- +'<div class="u-tw"><table class="u-tbl"><thead><tr><th>User ID</th><th>Full name</th><th>Department</th>'+'<th>Status</th><th>Actions</th></tr></thead><tbody>'
- +us.map(u=>'<tr data-u="'+u.user_id+'" data-s="'+esc((login(u)+' '+u.full_name).toLowerCase())+'" data-a="'+(u.active?'on':'off')+'"><td><b>'+esc(login(u))+'</b></td><td><input class="n" value="'+esc(u.full_name)+'"></td><td><select class="d">'+dopts(u.department_id)+'</select></td>'
-  +'<td><label style="cursor:pointer"><input type="checkbox" class="a"'+(u.active?' checked':'')+'> <span class="u-pill '+(u.active?'on':'off')+' st">'+(u.active?'Active':'Disabled')+'</span></label></td><td><button class="u-btn sm sv" disabled>Save</button> <button class="u-btn ghost sm rp">Reset password</button> <button class="u-btn ghost sm dl" style="border-color:#c0504d;color:#ff9a90">Delete</button></td></tr>').join('')
- +'</tbody></table></div>';
- const show=(t,pw,err)=>{const n=$('#uNote');n.innerHTML='<div class="u-note'+(err?' err':'')+'"><span>'+esc(t)+(pw?' <code>'+esc(pw)+'</code>':'')+'</span><span style="display:flex;gap:8px">'+(pw?'<button class="u-btn sm" id="uCp">Copy</button>':'')+'<button class="u-btn ghost sm" id="uX">Dismiss</button></span></div>';$('#uX').onclick=()=>n.innerHTML='';if(pw)$('#uCp').onclick=()=>{try{navigator.clipboard.writeText(pw);$('#uCp').textContent='Copied'}catch(e){$('#uCp').textContent='Select and copy'}}};
- if(note)show(note.t,note.pw,note.err);
- const flt=()=>{const q=$('#uq').value.trim().toLowerCase(),s=$('#usf').value;box.querySelectorAll('tr[data-u]').forEach(t=>{t.style.display=((!q||t.dataset.s.includes(q))&&(!s||t.dataset.a===s))?'':'none'})};
- $('#uq').oninput=flt;$('#usf').onchange=flt;
- $('#uTg').onclick=()=>{$('#uAdd').classList.toggle('open');$('#nId').focus()};$('#nGen').onclick=()=>$('#nPw').value=genPw();
- const hasAdmin=(roles)=>Object.keys(roles).some(m=>m!=='core'&&roles[m]==='admin');
- $('#nOk').onclick=async()=>{const id=$('#nId').value.trim().toLowerCase(),pw=$('#nPw').value;
-  try{await invokeUser({module:'none',login_id:id,full_name:$('#nName').value,department_id:Number($('#nDept').value),password:pw});
-   usersOpen({t:'Added '+id+'. Temporary password (shown once). The app access for the department was set automatically. Change a tile for a department in Portal Links:',pw})}catch(e){show(cleanErr(e.message),null,true)}};
- box.querySelectorAll('tr[data-u]').forEach(t=>{const id=t.dataset.u,u=us.find(x=>x.user_id===id),n=t.querySelector('.n'),d=t.querySelector('.d'),a=t.querySelector('.a'),st=t.querySelector('.st'),sv=t.querySelector('.sv'),rp=t.querySelector('.rp'),dl=t.querySelector('.dl');
-  const cur=m=>(u.roles||{})[m]||'';
-  const dirty=()=>{sv.disabled=!(n.value!==u.full_name||Number(d.value)!==u.department_id||a.checked!==u.active)};
-  [n,d].forEach(x=>{x.oninput=x.onchange=dirty});
-  a.onchange=()=>{st.className='u-pill '+(a.checked?'on':'off')+' st';st.textContent=a.checked?'Active':'Disabled';dirty()};
-  sv.onclick=async()=>{sv.disabled=true;try{
-    const {error:e1}=await C('user_update',{p_user_id:id,p_full_name:n.value,p_department_id:Number(d.value),p_active:a.checked});if(e1)throw e1;
-    usersOpen({t:'Saved changes for '+login(u)+'.'})}catch(e){sv.disabled=false;show(cleanErr(e.message),null,true)}};
-  let arm=false;rp.onclick=async()=>{if(!arm){arm=true;rp.textContent='Click again to confirm';setTimeout(()=>{arm=false;rp.textContent='Reset password'},4000);return}const pw=genPw();try{await invokeUser({action:'reset_password',user_id:id,password:pw});show('New temporary password for '+login(u)+' (shown once):',pw)}catch(e){show(cleanErr(e.message),null,true)}arm=false;rp.textContent='Reset password'};
-  let arm2=false;dl.onclick=async()=>{if(!arm2){arm2=true;dl.textContent='Click again to delete';setTimeout(()=>{arm2=false;dl.textContent='Delete'},4000);return}try{await invokeUser({action:'delete_user',user_id:id});usersOpen({t:'Deleted '+login(u)+'. The login is removed and cannot sign in again.'})}catch(e){show(cleanErr(e.message),null,true)}arm2=false;dl.textContent='Delete'}})}
-/* View only: users are added and changed in Gateway of CP, not here */
- {const hint=document.createElement('div');hint.className='u-note';hint.style.cssText='color:#ffe08c;font-weight:700';hint.textContent='View only. To add or change users, use Gateway of CP.';box.insertBefore(hint,box.firstChild);
-  ['#uAdd','#uTg'].forEach(q=>{const e=box.querySelector(q);if(e)e.remove()});
-  box.querySelectorAll('.u-add').forEach(e=>e.remove());
-  box.querySelectorAll('.u-tbl input,.u-tbl select').forEach(e=>{e.disabled=true});
-  box.querySelectorAll('.u-tbl tr').forEach(tr=>{const c=tr.lastElementChild;if(c)c.style.display='none'})}
+ const dOf=id=>ds.find(d=>d.id===id)||{};
+ const opens=u=>{const c=dOf(u.department_id).code;return links.filter(l=>(l.depts||[]).indexOf(c)>-1).map(l=>l.title)};
+ let tab=(typeof tabNow==='string')?tabNow:'people';
+ const TABS=[['people','👤 People ('+us.length+')'],['roles','🛡️ Roles ('+ds.length+')'],['access','🔑 Who can open what']];
+ const pill=a=>'<span class="u-pill '+(a?'on':'off')+'">'+(a?'Active':'Disabled')+'</span>';
+ function draw(){
+  let h='<div class="u-tabs">'+TABS.map(t=>'<button type="button" class="u-tab'+(tab===t[0]?' on':'')+'" data-t="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'
+   +'<div class="u-note" style="color:#ffe08c;font-weight:700">View only. To add or change people and roles, use Gateway of CP.</div>';
+  if(tab==='people'){
+   h+='<div class="u-bar"><input class="grow" id="uq" type="search" placeholder="Search name or User ID…"><select id="udf"><option value="">All roles</option>'+ds.map(d=>'<option value="'+d.id+'">'+esc(d.name)+'</option>').join('')+'</select><select id="usf"><option value="">All status</option><option value="on">Active</option><option value="off">Disabled</option></select></div>'
+   +'<div class="u-tw"><table class="u-tbl"><thead><tr><th>Person</th><th>Display name</th><th>Role</th><th>Status</th><th>Can open</th></tr></thead><tbody>'
+   +us.map(u=>'<tr data-s="'+esc((login(u)+' '+u.full_name).toLowerCase())+'" data-d="'+u.department_id+'" data-a="'+(u.active?'on':'off')+'"><td><b>'+esc(login(u))+'</b></td><td>'+esc(u.full_name||'')+'</td><td>'+esc(dOf(u.department_id).name||'—')+'</td><td>'+pill(u.active)+'</td><td style="white-space:normal;color:#9fb6cc;font-size:12px">'+(opens(u).map(esc).join(', ')||'—')+'</td></tr>').join('')+'</tbody></table></div>';
+  }else if(tab==='roles'){
+   h+='<div class="u-tw"><table class="u-tbl"><thead><tr><th>Role</th><th>Name</th><th>People</th><th>Status</th></tr></thead><tbody>'
+   +ds.map(d=>'<tr><td><b>'+esc((d.code||'').toLowerCase())+'</b></td><td>'+esc(d.name)+'</td><td>'+us.filter(u=>u.department_id===d.id).length+'</td><td>'+pill(d.active!==false)+'</td></tr>').join('')+'</tbody></table></div>';
+  }else{
+   h+='<div class="u-note" style="background:rgba(111,177,232,.1);border-color:rgba(111,177,232,.3);color:#cfe3f5">A tick means people in that role see the tile on the Home screen.</div><div class="u-tw"><table class="u-tbl"><thead><tr><th>Tile</th>'+ds.map(d=>'<th style="text-align:center">'+esc(d.name)+'</th>').join('')+'</tr></thead><tbody>'
+   +links.map(l=>'<tr><td><b>'+esc(l.title)+'</b></td>'+ds.map(d=>{const y=(l.depts||[]).indexOf(d.code)>-1;return '<td style="text-align:center;color:'+(y?'#5fd394':'#6b7f93')+';font-weight:800">'+(y?'✓':'–')+'</td>'}).join('')+'</tr>').join('')+'</tbody></table></div>';
+  }
+  box.innerHTML=h;
+  box.querySelectorAll('.u-tab').forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw()});
+  if(tab==='people'){const flt=()=>{const q=$('#uq').value.trim().toLowerCase(),d=$('#udf').value,st=$('#usf').value;box.querySelectorAll('tbody tr').forEach(t=>{t.style.display=((!q||t.dataset.s.includes(q))&&(!d||t.dataset.d===d)&&(!st||t.dataset.a===st))?'':'none'})};$('#uq').oninput=flt;$('#udf').onchange=flt;$('#usf').onchange=flt}
+ }
+ draw();
+}
 $('#usersClose').onclick=()=>$('#usersModal').classList.remove('show');
 // ---------- start ----------
 (async()=>{const {data:s}=await sb.auth.getSession();if(s.session)afterLogin(false)})();
