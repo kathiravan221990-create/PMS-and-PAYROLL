@@ -839,7 +839,7 @@ function pfTable(){
  const rp=P.map(row),rc=C.map(row);
  const yr=(arr)=>{const p=sumN(arr.map(x=>x.p)),d=sumN(arr.map(x=>x.d)),t=sumN(arr.map(x=>x.t)),n_=sumN(arr.map(x=>x.n));return {p,d,t,n:n_,c:divN(t,n_)}};
  const cells=(x,Mo,edit)=>`${x.m?mtd(x.m,'power',x.p,{edit,fmt:v=>v==null?'-':'₹ '+n(v)}):`<td>${x.p==null?'-':'₹ '+n(x.p)}</td>`}${x.m?mtd(x.m,'diesel',x.d,{edit,fmt:v=>v==null?'-':'₹ '+n(v)}):`<td>${x.d==null?'-':'₹ '+n(x.d)}</td>`}<td>${x.t==null?'-':'₹ '+n(x.t)}</td>${x.m?mtd(x.m,'tins',x.n,{edit}):`<td>${fx(x.n)}</td>`}<td class="g1">${fx(x.c,3)}</td>`;
- const hdr=(t1,t2)=>`<tr><th colspan="6" class="h2">${t1}</th><th colspan="5" class="h2">${t2}</th><th class="x"></th></tr>
+ const hdr=(t1,t2)=>`<tr><th class="x"></th><th colspan="6" class="h2">${t1}</th><th colspan="5" class="h2">${t2}</th><th class="x"></th></tr>
  <tr>${['QUARTERS','MONTH','POWER COST in Rs','FUEL (DIESEL) COST in Rs','POWER AND FUEL COST','TOTAL PRODUCTION','POWER COST / TIN','POWER COST in Rs','FUEL (DIESEL) COST in Rs','POWER AND FUEL COST','TOTAL PRODUCTION','POWER COST / TIN','Variance'].map(x=>`<th class="h1">${x}</th>`).join('')}</tr>`;
  const vr=(x,y)=>`<td>${x.c==null||y.c==null?'-':(x.c-y.c).toFixed(3)}</td>`;
  let h=`<table class="mt">${hdr(FYL(b).replace('FY','FINANCIAL YEAR - ').replace('-','- '),FYL(a).replace('FY','FINANCIAL YEAR - ').replace('-','- '))}`;
@@ -855,7 +855,9 @@ async function masterExcel(){
  const wb=new ExcelJS.Workbook();const a=MS.data.fy,b=MS.data.prev;
  const thin={style:'thin'};const bd={top:thin,left:thin,bottom:thin,right:thin};
  const fill=h=>({type:'pattern',pattern:'solid',fgColor:{argb:'FF'+h}});
- const st=(c,o)=>{o=o||{};c.border=bd;c.alignment={horizontal:'center',vertical:'middle',wrapText:!!o.wrap};c.font={name:'Aptos Narrow',size:9,bold:!!o.b,color:{argb:o.w?'FFFFFFFF':'FF000000'}};if(o.f)c.fill=fill(o.f);if(o.nf)c.numFmt=o.nf};
+ const st=(c,o)=>{o=o||{};c.border=bd;c.alignment={horizontal:o.al||'center',vertical:'middle',wrapText:!!o.wrap};c.font={name:'Segoe UI',size:10,bold:!!o.b,italic:!!o.i,color:{argb:o.w?'FFFFFFFF':o.i?'FF6B4E00':'FF000000'}};if(o.f)c.fill=fill(o.f);if(o.nf)c.numFmt=o.nf;if(o.n)c.note=o.n};
+ const NFI='[>=10000000]##\\,##\\,##\\,##0;[>=100000]##\\,##\\,##0;##,##0';
+ const ann=(m,fl,val)=>{const r=MS.map[m];if(!r)return {};const key={power_fuel:'power_fuel',power:'power_fuel',diesel:'power_fuel'}[fl]||fl;const manual=r.src&&r.src[fl]==='manual';const th=r.through&&r.through[key];const partial=val!=null&&(!th||th<lastDay(m));return {i:partial,n:r.locked?'Month locked':manual?'Typed manually':partial?('Data up to '+(th?dl(th):'-')):undefined}};
  const put=(ws,ref,v,o)=>{const c=ws.getCell(ref);c.value=v;st(c,o);return c};
  const fm=(ws,ref,f,res,o)=>put(ws,ref,{formula:f,result:res==null||isNaN(res)?0:res},o);
  const L=['A','B','C','D','E','F','G','H','I','J','K','L','M'];
@@ -871,16 +873,17 @@ async function masterExcel(){
  for(let q=0;q<4;q++){const r0=r;
   for(let i=0;i<3;i++){const k=q*3+i,P=mp[k],C=mc[k],m0=r;
    MCAT.forEach((c,ci)=>{const rr=r++;
-    put(ws,'C'+rr,c[1],{f:MPAL.grey1});
+    put(ws,'C'+rr,c[1],{f:MPAL.grey1,al:'left'});
     const pe=P.cat[c[0]],ce=C.cat[c[0]];
-    put(ws,'D'+rr,pe,{f:MPAL.grey0,nf:'#,##0'});put(ws,'G'+rr,ce,{f:MPAL.grey0,nf:'#,##0'});
-    put(ws,'E'+rr,P.tins,{f:MPAL.grey0,nf:'#,##0'});put(ws,'H'+rr,C.tins,{f:MPAL.grey0,nf:'#,##0'});
-    fm(ws,'F'+rr,`IFERROR(D${rr}/E${rr},0)`,divN(pe,P.tins)||0,{f:MPAL.grey0,nf:'#,##0.000'});
-    fm(ws,'I'+rr,`IFERROR(G${rr}/H${rr},0)`,divN(ce,C.tins)||0,{f:MPAL.grey0,nf:'#,##0.000'});
-    fm(ws,'J'+rr,`D${rr}-G${rr}`,(pe||0)-(ce||0),{f:MPAL.grey0,nf:'#,##0'});
-    fm(ws,'K'+rr,`E${rr}-H${rr}`,(P.tins||0)-(C.tins||0),{f:MPAL.grey0,nf:'#,##0'});
+    put(ws,'D'+rr,pe,{f:MPAL.grey0,nf:NFI,...ann(P.m,c[0],pe)});put(ws,'G'+rr,ce,{f:MPAL.grey0,nf:NFI,...ann(C.m,c[0],ce)});
+    if(ci===0){put(ws,'E'+rr,P.tins,{f:MPAL.grey0,nf:NFI,...ann(P.m,'tins',P.tins)});put(ws,'H'+rr,C.tins,{f:MPAL.grey0,nf:NFI,...ann(C.m,'tins',C.tins)});fm(ws,'K'+rr,`E${m0}-H${m0}`,(P.tins||0)-(C.tins||0),{f:MPAL.grey0,nf:NFI})}
+    fm(ws,'F'+rr,`IFERROR(D${rr}/E${m0},0)`,divN(pe,P.tins)||0,{f:MPAL.grey0,nf:'#,##0.000'});
+    fm(ws,'I'+rr,`IFERROR(G${rr}/H${m0},0)`,divN(ce,C.tins)||0,{f:MPAL.grey0,nf:'#,##0.000'});
+    fm(ws,'J'+rr,`D${rr}-G${rr}`,(pe||0)-(ce||0),{f:MPAL.grey0,nf:NFI});
     fm(ws,'L'+rr,`F${rr}-I${rr}`,(divN(pe,P.tins)||0)-(divN(ce,C.tins)||0),{f:MPAL.grey0,nf:'#,##0.000'});
    });
+   ['E','H','K'].forEach(cc=>ws.mergeCells(`${cc}${m0}:${cc}${m0+4}`));
+   ['E','H','K'].forEach(cc=>{for(let x=m0+1;x<m0+5;x++)st(ws.getCell(cc+x),{f:MPAL.grey0,nf:NFI})});
    ws.mergeCells(`B${m0}:B${m0+4}`);put(ws,'B'+m0,MFULL[k],{f:MPAL.navy});for(let x=m0+1;x<m0+5;x++)st(ws.getCell('B'+x),{f:MPAL.navy});
   }
   ws.mergeCells(`A${r0}:A${r0+14}`);put(ws,'A'+r0,'Q'+(q+1),{f:MPAL.green});for(let x=r0+1;x<r0+15;x++)st(ws.getCell('A'+x),{f:MPAL.green});
@@ -888,26 +891,26 @@ async function masterExcel(){
   const tr=r++;const QP=qTotals(mp,q),QC=qTotals(mc,q);
   ws.mergeCells(`A${tr}:C${tr}`);put(ws,'A'+tr,`Q${q+1} TOTAL`,{f:MPAL.blue,w:1,b:1});st(ws.getCell('B'+tr),{f:MPAL.blue,w:1});st(ws.getCell('C'+tr),{f:MPAL.blue,w:1});
   const m1=r0,m2=r0+5,m3=r0+10,B={f:MPAL.blue,w:1,b:1};
-  fm(ws,'D'+tr,`SUM(D${r0}:D${r0+14})`,QP.exp,{...B,nf:'#,##0'});fm(ws,'E'+tr,`E${m1}+E${m2}+E${m3}`,QP.tins,{...B,nf:'#,##0'});fm(ws,'F'+tr,`IFERROR(D${tr}/E${tr},0)`,divN(QP.exp,QP.tins),{...B,nf:'#,##0.000'});
-  fm(ws,'G'+tr,`SUM(G${r0}:G${r0+14})`,QC.exp,{...B,nf:'#,##0'});fm(ws,'H'+tr,`H${m1}+H${m2}+H${m3}`,QC.tins,{...B,nf:'#,##0'});fm(ws,'I'+tr,`IFERROR(G${tr}/H${tr},0)`,divN(QC.exp,QC.tins),{...B,nf:'#,##0.000'});
-  fm(ws,'J'+tr,`D${tr}-G${tr}`,(QP.exp||0)-(QC.exp||0),{...B,nf:'#,##0'});fm(ws,'K'+tr,`E${tr}-H${tr}`,(QP.tins||0)-(QC.tins||0),{...B,nf:'#,##0'});fm(ws,'L'+tr,`F${tr}-I${tr}`,(divN(QP.exp,QP.tins)||0)-(divN(QC.exp,QC.tins)||0),{...B,nf:'#,##0.000'});
+  fm(ws,'D'+tr,`SUM(D${r0}:D${r0+14})`,QP.exp,{...B,nf:NFI});fm(ws,'E'+tr,`E${m1}+E${m2}+E${m3}`,QP.tins,{...B,nf:NFI});fm(ws,'F'+tr,`IFERROR(D${tr}/E${tr},0)`,divN(QP.exp,QP.tins),{...B,nf:'#,##0.000'});
+  fm(ws,'G'+tr,`SUM(G${r0}:G${r0+14})`,QC.exp,{...B,nf:NFI});fm(ws,'H'+tr,`H${m1}+H${m2}+H${m3}`,QC.tins,{...B,nf:NFI});fm(ws,'I'+tr,`IFERROR(G${tr}/H${tr},0)`,divN(QC.exp,QC.tins),{...B,nf:'#,##0.000'});
+  fm(ws,'J'+tr,`D${tr}-G${tr}`,(QP.exp||0)-(QC.exp||0),{...B,nf:NFI});fm(ws,'K'+tr,`E${tr}-H${tr}`,(QP.tins||0)-(QC.tins||0),{...B,nf:NFI});fm(ws,'L'+tr,`F${tr}-I${tr}`,(divN(QP.exp,QP.tins)||0)-(divN(QC.exp,QC.tins)||0),{...B,nf:'#,##0.000'});
   qRows.push(tr);
  }
  {const tr=r++,YP=yTotals(mp),YC2=yTotals(mc),B={f:MPAL.blue,w:1,b:1};
   ws.mergeCells(`A${tr}:C${tr}`);put(ws,'A'+tr,'FINANCIAL YEAR TOTAL',B);st(ws.getCell('B'+tr),B);st(ws.getCell('C'+tr),B);
   const sm=c=>qRows.map(x=>c+x).join('+');
-  fm(ws,'D'+tr,sm('D'),YP.exp,{...B,nf:'#,##0'});fm(ws,'E'+tr,sm('E'),YP.tins,{...B,nf:'#,##0'});fm(ws,'F'+tr,`IFERROR(D${tr}/E${tr},0)`,divN(YP.exp,YP.tins),{...B,nf:'#,##0.000'});
-  fm(ws,'G'+tr,sm('G'),YC2.exp,{...B,nf:'#,##0'});fm(ws,'H'+tr,sm('H'),YC2.tins,{...B,nf:'#,##0'});fm(ws,'I'+tr,`IFERROR(G${tr}/H${tr},0)`,divN(YC2.exp,YC2.tins),{...B,nf:'#,##0.000'});
-  fm(ws,'J'+tr,`D${tr}-G${tr}`,(YP.exp||0)-(YC2.exp||0),{...B,nf:'#,##0'});fm(ws,'K'+tr,`E${tr}-H${tr}`,(YP.tins||0)-(YC2.tins||0),{...B,nf:'#,##0'});fm(ws,'L'+tr,`F${tr}-I${tr}`,(divN(YP.exp,YP.tins)||0)-(divN(YC2.exp,YC2.tins)||0),{...B,nf:'#,##0.000'});}
+  fm(ws,'D'+tr,sm('D'),YP.exp,{...B,nf:NFI});fm(ws,'E'+tr,sm('E'),YP.tins,{...B,nf:NFI});fm(ws,'F'+tr,`IFERROR(D${tr}/E${tr},0)`,divN(YP.exp,YP.tins),{...B,nf:'#,##0.000'});
+  fm(ws,'G'+tr,sm('G'),YC2.exp,{...B,nf:NFI});fm(ws,'H'+tr,sm('H'),YC2.tins,{...B,nf:NFI});fm(ws,'I'+tr,`IFERROR(G${tr}/H${tr},0)`,divN(YC2.exp,YC2.tins),{...B,nf:'#,##0.000'});
+  fm(ws,'J'+tr,`D${tr}-G${tr}`,(YP.exp||0)-(YC2.exp||0),{...B,nf:NFI});fm(ws,'K'+tr,`E${tr}-H${tr}`,(YP.tins||0)-(YC2.tins||0),{...B,nf:NFI});fm(ws,'L'+tr,`F${tr}-I${tr}`,(divN(YP.exp,YP.tins)||0)-(divN(YC2.exp,YC2.tins)||0),{...B,nf:'#,##0.000'});}
  ws.getCell('A'+(r+1)).value=`Power & fuel: ${MS.basis==='same'?'same month (electricity shown in the month named on the bill)':'billed month (electricity shown one month later, as in the old workbook)'}. Production from PMS unless typed.`;
- ws.getCell('A'+(r+1)).font={name:'Aptos Narrow',size:9,italic:true};
+ ws.getCell('A'+(r+1)).font={name:'Segoe UI',size:10,italic:true};
  /* ---- POWER & FUEL MASTER ---- */
  const w2=wb.addWorksheet('POWER & FUEL MASTER');
  [14.6,13.8,15,17,16,16,15,15,17,16,16,16.1,14.6].forEach((w,i)=>w2.getColumn(i+1).width=w);
  const P=mths(b),C=mths(a);
- const rowv=m=>{const p=mval(m,'power'),d=mval(m,'diesel'),t=mval(m,'power_fuel'),n_=mval(m,'tins');return {p,d,t,n:n_,c:divN(t,n_)}};
+ const rowv=m=>{const p=mval(m,'power'),d=mval(m,'diesel'),t=mval(m,'power_fuel'),n_=mval(m,'tins');return {m,p,d,t,n:n_,c:divN(t,n_)}};
  const rp=P.map(rowv),rc=C.map(rowv);
- const NF='"₹" #,##0';
+ const NF='[>=10000000]"₹ "##\\,##\\,##\\,##0;[>=100000]"₹ "##\\,##\\,##0;"₹ "##,##0';
  const head=(r0,t1,t2)=>{w2.mergeCells(`B${r0}:G${r0}`);w2.mergeCells(`H${r0}:L${r0}`);
   put(w2,'B'+r0,t1,{f:MPAL.peach});put(w2,'H'+r0,t2,{f:MPAL.peach});['C','D','E','F','G','I','J','K','L'].forEach(c=>st(w2.getCell(c+r0),{f:MPAL.peach}));
   ['QUARTERS','MONTH','POWER COST in Rs','FUEL (DIESEL) COST in Rs','POWER AND FUEL COST','TOTAL PRODUCTION','POWER COST / TIN','POWER COST in Rs','FUEL (DIESEL) COST in Rs','POWER AND FUEL COST','TOTAL PRODUCTION','POWER COST / TIN','Variance'].forEach((t,i)=>put(w2,L[i]+(r0+1),t,{f:MPAL.blue,w:1,wrap:1}))};
@@ -915,9 +918,9 @@ async function masterExcel(){
  head(1,t1,t2);
  const line=(rr,x,y,o)=>{ /* x previous year object, y current year object */
   const g=o||{};
-  put(w2,'C'+rr,x.p,{nf:NF,...g});put(w2,'D'+rr,x.d,{nf:NF,...g});fm(w2,'E'+rr,`C${rr}+D${rr}`,(x.p||0)+(x.d||0),{nf:NF,...g});put(w2,'F'+rr,x.n,{nf:'#,##0',...g});
+  const A=(o2,fl,v)=>o2.m?ann(o2.m,fl,v):{};put(w2,'C'+rr,x.p,{nf:NF,...g,...A(x,'power',x.p)});put(w2,'D'+rr,x.d,{nf:NF,...g,...A(x,'diesel',x.d)});fm(w2,'E'+rr,`C${rr}+D${rr}`,(x.p||0)+(x.d||0),{nf:NF,...g});put(w2,'F'+rr,x.n,{nf:NFI,...g,...A(x,'tins',x.n)});
   fm(w2,'G'+rr,`IFERROR(E${rr}/F${rr},0)`,divN((x.p||0)+(x.d||0),x.n)||0,{nf:'0.000',...(o?o:{f:MPAL.grey1})});
-  put(w2,'H'+rr,y.p,{nf:NF,...g});put(w2,'I'+rr,y.d,{nf:NF,...g});fm(w2,'J'+rr,`H${rr}+I${rr}`,(y.p||0)+(y.d||0),{nf:NF,...g});put(w2,'K'+rr,y.n,{nf:'#,##0',...g});
+  put(w2,'H'+rr,y.p,{nf:NF,...g,...A(y,'power',y.p)});put(w2,'I'+rr,y.d,{nf:NF,...g,...A(y,'diesel',y.d)});fm(w2,'J'+rr,`H${rr}+I${rr}`,(y.p||0)+(y.d||0),{nf:NF,...g});put(w2,'K'+rr,y.n,{nf:NFI,...g,...A(y,'tins',y.n)});
   fm(w2,'L'+rr,`IFERROR(J${rr}/K${rr},0)`,divN((y.p||0)+(y.d||0),y.n)||0,{nf:'0.000',...(o?o:{f:MPAL.grey1})});
   fm(w2,'M'+rr,`G${rr}-L${rr}`,(divN((x.p||0)+(x.d||0),x.n)||0)-(divN((y.p||0)+(y.d||0),y.n)||0),{nf:'0.000',...g})};
  for(let k=0;k<12;k++){const rr=3+k;line(rr,rp[k],rc[k]);put(w2,'B'+rr,MFULL[k].toUpperCase(),{f:MPAL.sky});
@@ -945,7 +948,7 @@ async function masterExcel(){
   fm(w2,'M'+rr,`G${rr}-L${rr}`,(divN((x.p||0)+(x.d||0),x.n)||0)-(divN((y.p||0)+(y.d||0),y.n)||0),{nf:'0.000'})}
  ovr(23,19,22,rp,rc,'OVERALL');
  w2.getCell('A25').value=`Power: ${MS.basis==='same'?'same month (electricity shown in the month named on the bill)':'billed month (electricity shown one month later, as in the old workbook)'}. Diesel is the same in both. Production from PMS unless typed.`;
- w2.getCell('A25').font={name:'Aptos Narrow',size:9,italic:true};
+ w2.getCell('A25').font={name:'Segoe UI',size:10,italic:true};
  w2.getRow(2).height=26;w2.getRow(18).height=26;
  const buf=await wb.xlsx.writeBuffer();const el=document.createElement('a');
  el.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
