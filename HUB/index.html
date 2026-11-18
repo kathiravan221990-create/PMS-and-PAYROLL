@@ -878,5 +878,13 @@ async function usersOpen(tabNow){
 }
 $('#usersClose').onclick=()=>$('#usersModal').classList.remove('show');
 // ---------- start ----------
-(async()=>{const {data:s}=await sb.auth.getSession();if(s.session)afterLogin(false)})();
+(async()=>{
+ let want=null;
+ try{const m=/[#&]gw=([^&]+)/.exec(location.hash||'');
+  if(m){const o=JSON.parse(atob(decodeURIComponent(m[1])));const q=/[#&]open=([^&]+)/.exec(location.hash||'');want=q?decodeURIComponent(q[1]):null;
+   history.replaceState(null,'',location.pathname+location.search);
+   if(o&&o.a&&o.r)await sb.auth.setSession({access_token:o.a,refresh_token:o.r})}}catch(e){}
+ const {data:s}=await sb.auth.getSession();
+ if(s.session){await afterLogin(false);
+  if(want){const p=PORTALS.find(x=>x.id===want);if(p&&visible().some(x=>x.id===p.id))setTimeout(()=>openPortal(p),80)}}})();
 </script></body></html>
