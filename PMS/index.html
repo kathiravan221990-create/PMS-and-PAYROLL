@@ -724,7 +724,7 @@ function slitForm(e){const isNew=!e;
  const JX={on:false};
  $('#main').innerHTML=`<div class="row noprint" style="margin-bottom:12px"><button class="b l" id="bk">${bt('x','Back to slitting')}</button></div>
  <div class="card"><h2>1. Skid</h2><div class="fg"><label>Date<input id="d" type="date" value="${e?e.date:TODAY}"></label>
-  <label>Skid No (Instock / WIP only)<select id="sk"><option value="">— pick skid —</option>${open.map(x=>`<option ${e&&e.skid===x.no?'selected':''}>${x.no}</option>`).join('')}</select></label>
+  <label>Skid No (Instock / WIP only)<input id="skq" placeholder="Search skid no, job, variant, vendor..." autocomplete="off" style="margin-bottom:4px"><select id="sk"><option value="">— pick skid —</option>${open.map(x=>`<option value="${x.no}" ${e&&e.skid===x.no?'selected':''}>${x.no} · ${esc(x.job||'')} ${esc(x.spec||'')}</option>`).join('')}</select><span class="mut" id="skn" style="font-size:11px"></span></label>
   <label>Skid status (auto)<input id="st" readonly></label><label>Balance sheets (Nos)<input id="bal" readonly></label>
   <label>Vendor<input id="ve" readonly></label><label>Variant<input id="va" readonly></label><label>Colour<input id="col" readonly></label><label>Shape<input id="sh" readonly></label>
   <label>Job Name<input id="jb" readonly></label><label>Job Spec<input id="sp" readonly></label><label>Components in skid<input id="cm" readonly></label><label>Job ID (auto)<input id="jid" readonly></label>
@@ -742,6 +742,10 @@ function slitForm(e){const isNew=!e;
   <label>Bifurcated skid kg (auto)<input id="bf" readonly></label><label>Raw skid kg (net)<input id="rw" readonly></label><label>Variance kg (auto)<input id="vr" readonly></label></div>
   <div class="row noprint" style="margin-top:14px"><button class="b g" id="sv2">${bt('save',isNew?'Save slitting':'Save changes')}</button><button class="b l" id="cx">${bt('x','Cancel')}</button></div></div>`;
  const curSk=()=>SKIDS.find(x=>x.no===$('#sk').value);
+ const skFilter=()=>{const q=($('#skq').value||'').trim().toLowerCase(),cur=$('#sk').value;const L=open.filter(x=>!q||x.no===cur||[x.no,x.job,x.spec,x.variant,x.vendor,x.colour,x.shape,x.dc,x.so].join(' ').toLowerCase().includes(q));
+  $('#sk').innerHTML='<option value="">— pick skid —</option>'+L.map(x=>`<option value="${esc(x.no)}" ${x.no===cur?'selected':''}>${esc(x.no)} · ${esc(x.job||'')} ${esc(x.spec||'')}</option>`).join('');$('#skn').textContent=q?L.filter(x=>x.no!==cur||true).length+' match'+(L.length===1?'':'es'):'';
+  if(q&&L.length===1&&$('#sk').value!==L[0].no){$('#sk').value=L[0].no;$('#sk').dispatchEvent(new Event('change'))}};
+ $('#skq').oninput=skFilter;
  const jcComp=()=>[['jcB','BODY'],['jcL','LID'],['jcT','BOTTOM']].filter(a=>$('#'+a[0]).checked).map(a=>a[1]).join(',');
  const curComp=()=>{const k=curSk();return JX.on?jcComp():slComp(e&&e.skid===(k&&k.no)?e:null,k)};
  const curJ=()=>{const k=curSk();if(!k)return {};if(JX.on)return {vendor:$('#jv').value,variant:$('#jvar').value,colour:$('#jcol').value,shape:$('#jsh').value,job:$('#jjb').value,spec:$('#jsp').value};return slJ(e&&e.skid===k.no?e:null,k)};
