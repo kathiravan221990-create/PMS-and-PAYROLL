@@ -179,12 +179,12 @@ async function vPeriods(kind){
   await loadFY(selFY);await loadFY(selFY-1);
   const defs=periodDefs(kind);let tA=0,tB=0,anyA=false,anyB=false,body='';
   const fyOpts=[];for(let y=2025;y<=curFY+1;y++)fyOpts.push(y);
-  defs.forEach(d=>{const A=agg(selFY,d.idx),B=agg(selFY-1,d.idx);if(A.any){tA+=A.tot;anyA=true;if(B.any){tB+=B.tot;anyB=true}}
+  defs.forEach(d=>{const A=agg(selFY,d.idx);const got=d.idx.filter(i=>agg(selFY,[i]).any),partQ=kind==='quarter'&&got.length>0&&got.length<d.idx.length;const B=agg(selFY-1,partQ?got:d.idx);const PT=partQ?` <span class="pill" title="Last year is compared for the same months only">Part: ${got.map(i=>MN[i]).join(', ')} only</span>`:'';if(A.any){tA+=A.tot;anyA=true;if(B.any){tB+=B.tot;anyB=true}}
     const open=openSet.has(kind+d.k),canX=A.split||B.split;let aCell;
     if(!A.any&&kind==='month')aCell=`<span class="pill">Planned</span> <input class="pl" data-m="${mkey(selFY,d.idx[0])}" placeholder="mandays"> <button class="b l" data-save="${mkey(selFY,d.idx[0])}">Save</button>`;
     else aCell=fmt(A.tot)+(A.plan?' <span class="pill">Planned</span>':'');
     const planRow=A.plan&&kind==='month'?` <button class="b l" data-clr="${mkey(selFY,d.idx[0])}">Clear</button>`:'';
-    body+=`<tr class="${canX?'par':''}" data-k="${kind+d.k}"><td><span class="tg">${canX?(open?'▾':'▸'):''}</span>${esc(d.label)}</td><td>${aCell}${A.lo?LOP:''}${planRow}</td><td>${fmt(B.tot)}${B.lo?LOP:''}</td>${diffCells(A.tot,B.tot)}</tr>`;
+    body+=`<tr class="${canX?'par':''}" data-k="${kind+d.k}"><td><span class="tg">${canX?(open?'▾':'▸'):''}</span>${esc(d.label)}${PT}</td><td>${aCell}${A.lo?LOP:''}${planRow}</td><td>${fmt(B.tot)}${B.lo?LOP:''}${PT?'':''}</td>${diffCells(A.tot,B.tot)}</tr>`;
     if(open&&canX){[...new Set([...Object.keys(A.by),...Object.keys(B.by)])].sort().forEach(c=>{const a=A.by[c]||0,b=B.split?(B.by[c]||0):null;body+=`<tr class="sub"><td>${esc(c)}</td><td>${fmt(a)}</td><td>${fmt(b)}</td>${diffCells(a,b)}</tr>`})}});
   paint(`<div class="bar"><label class="f">Financial year<select id="fy">${fyOpts.map(y=>`<option value="${y}" ${y===selFY?'selected':''}>${fyl(y)}</option>`).join('')}</select></label><span class="mut">Compared with ${fyl(selFY-1)}</span></div>
   <div class="card"><table><tr><th>${kind==='month'?'Month':'Quarter'}</th><th>FY ${fyl(selFY)}</th><th>FY ${fyl(selFY-1)}</th><th>Difference</th><th>%</th></tr>${body}
