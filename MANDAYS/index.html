@@ -44,7 +44,7 @@ input.pl{width:110px;text-align:right}
 .card{background:var(--panel);border:1px solid #2a4a86;border-radius:12px;padding:12px;overflow:auto}
 table{border-collapse:collapse;width:100%}th{background:var(--panel2);color:var(--gold2);font-size:12px;letter-spacing:.5px;text-transform:uppercase;padding:8px 10px;text-align:right;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}td{padding:7px 10px;border-top:1px solid #234a8a;text-align:right;white-space:nowrap}
-tr.tot td{font-weight:800;background:#0a2250;color:var(--gold2)}tr.sub td{color:#cfd9f3;background:#0c2756;font-size:13px}tr.sub td:first-child{padding-left:30px}
+tr.tot td{font-weight:800;background:#0a2250;color:var(--gold2)}tr.sub td{color:#000;background:#fff5c9;font-size:13px;border-top:1px solid #e6d58a}tr.sub td:first-child{padding-left:30px;font-weight:600}tr.sub .mut{color:#6b5d1f}tr.sub .ar{color:#000}
 tr.par{cursor:pointer}tr.par:hover td{background:#17418a}.tg{display:inline-block;width:16px;color:var(--gold)}
 .mut{color:var(--mut)}.pill{font-size:11px;padding:2px 8px;border-radius:10px;background:#3a2f0b;color:var(--gold2);border:1px solid var(--gold)}
 .ar{color:var(--lt);opacity:.85}.note{font-size:12px;color:var(--mut);margin-top:10px}
@@ -85,9 +85,9 @@ const LOP=' <span class="pill" title="From your Excel: LITE basis. ULTRA is not 
 const arrow=(a,b)=>a>b?'▲':a<b?'▼':'●';
 function diffCells(a,b){if(a==null||b==null)return'<td>—</td><td>—</td>';const d=a-b;return`<td>${d>0?'+':''}${fmt(d)} <span class="ar">${arrow(a,b)}</span></td><td>${b?((d>0?'+':'')+(d/b*100).toFixed(1)+'%'):'—'}</td>`}
 
-function shell(inner){return`<header><img src="data:image/png;base64,${IMG}" alt=""><div><b>MANDAYS</b><span class="s">CLASSIC PACK WORKSPACE · ${mode==='ultra'?'ULTRA: LITE + NH, paid OFF and comp-off OT':'LITE: present + OT hours ÷ 8'}</span></div><div class="sp"></div><div class="tg2"><button data-md="lite" class="${mode==='lite'?'on':''}">LITE</button><button data-md="ultra" class="${mode==='ultra'?'on':''}">ULTRA</button></div><div class="who">${esc(me.full_name)} · ${esc(me.department.name)}</div><a class="back" href="${WS}">← Workspace</a></header>
+function shell(inner){return`<header><img src="data:image/png;base64,${IMG}" alt=""><div><b>MANDAYS</b><span class="s">CLASSIC PACK WORKSPACE · ${mode==='ultra'?'ULTRA: LITE + NH, paid OFF and comp-off OT':'LITE: present + OT hours ÷ 8'}</span></div><div class="sp"></div><div class="tg2"><button data-md="lite" class="${mode==='lite'?'on':''}">LITE</button><button data-md="ultra" class="${mode==='ultra'?'on':''}">ULTRA</button></div><button class="b l" data-dl="1" title="Year, Quarter and Month wise tables with contractor rows">⬇ Excel · Expanded</button><button class="b l" data-dl="0" title="Year, Quarter and Month wise totals only">⬇ Excel · Collapsed</button><div class="who">${esc(me.full_name)} · ${esc(me.department.name)}</div><a class="back" href="${WS}">← Workspace</a></header>
 <nav class="tabs">${[['day','Day wise'],['month','Month wise'],['quarter','Quarter wise'],['cmp','Comparison']].map(t=>`<button data-t="${t[0]}" class="${tab===t[0]?'on':''}">${t[1]}</button>`).join('')}</nav><main>${inner}</main>`}
-function paint(inner){$('#root').innerHTML=shell(inner);document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});document.querySelectorAll('.tg2 button').forEach(b=>b.onclick=()=>{if(mode!==b.dataset.md){mode=b.dataset.md;render()}})}
+function paint(inner){$('#root').innerHTML=shell(inner);document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});document.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>dlExcel(b.dataset.dl==='1'));document.querySelectorAll('.tg2 button').forEach(b=>b.onclick=()=>{if(mode!==b.dataset.md){mode=b.dataset.md;render()}})}
 
 async function render(){try{
   if(tab==='day')return await vDay();
@@ -109,6 +109,69 @@ async function vDay(){
   const cj={};comp.forEach(r=>cj[r.contractor]=r);const compT=comp.reduce((a,r)=>a+(+r.mandays),0);if(ult)T.m+=compT;
   $('#dc').innerHTML=`<table><tr><th>Day</th>${cons.map(c=>`<th>${esc(c)}</th>`).join('')}<th>Present</th><th>OT hrs</th>${ult?'<th>NH / OFF days</th>':''}<th>Total mandays</th></tr>${tr}${ult&&compT?`<tr class="sub"><td>Comp-off OT (month level, hrs ÷ 8)</td>${cons.map(c=>`<td>${cj[c]?fmt(cj[c].mandays):'—'}</td>`).join('')}<td></td><td>${fmt(comp.reduce((a,r)=>a+(+r.ot_hours),0))}</td><td></td><td>${fmt(compT)}</td></tr>`:''}<tr class="tot"><td>Month total</td>${cons.map(c=>`<td>${fmt(C[c]+(ult&&cj[c]?+cj[c].mandays:0))}</td>`).join('')}<td>${T.p}</td><td>${fmt(T.o)}</td>${ult?`<td>${T.e}</td>`:''}<td>${fmt(T.m)}</td></tr></table>
   <div class="note">${ult?'ULTRA mandays = LITE + NH/PH days + days worked on an NH + paid weekly OFF days + comp-off OT hours ÷ 8. NH OT hours are already inside OT hrs, so they are not added twice.':'LITE mandays = present heads (P and half-day) + OT hours ÷ 8.'} Contract labour only. Contractor columns show mandays for that day.</div>`}
+
+let _xj=null;
+function loadXJ(){if(window.ExcelJS)return Promise.resolve();if(_xj)return _xj;
+  return _xj=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.onload=ok;s.onerror=()=>{_xj=null;no(new Error('Could not load the Excel library. Check the internet connection and try again.'))};document.head.appendChild(s)})}
+async function dlExcel(expanded){
+  try{toast('Preparing Excel…');
+    await Promise.all([loadFY(selFY),loadFY(selFY-1),loadXJ()]);
+    const NAVY='FF07173A',GOLD='FFD9B341',YEL='FFFFF5C9',TOT='FFDCE6F7',WHITE='FFFFFFFF',NUM='#,##0.0;-#,##0.0;"-"',PCT='+0.0%;-0.0%;0.0%';
+    const M=[...Array(12).keys()].map(i=>({a:agg(selFY,[i]),b:agg(selFY-1,[i])}));
+    const CON=[...new Set(M.flatMap(m=>[...Object.keys(m.a.by),...Object.keys(m.b.by)]))].sort();
+    const nC=expanded?CON.length:0,per=1+nC,has=i=>M[i].a.any,hasB=i=>M[i].b.any;
+    const both=[...Array(12).keys()].filter(i=>has(i)&&hasB(i));
+    const wb=new ExcelJS.Workbook();wb.creator='Classic Pack Workspace';const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false}},pageSetup:{orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0}});
+    [44,16,16,18,12].forEach((w,i)=>ws.getColumn(i+1).width=w);
+    const A='FY '+fyl(selFY),B='FY '+fyl(selFY-1),fnt=(o)=>Object.assign({name:'Arial',size:10},o||{}),fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),thin={style:'thin',color:{argb:'FFB8C4DC'}},box={left:thin,right:thin,top:thin,bottom:thin};
+    const d=new Date(),ds=String(d.getDate()).padStart(2,'0')+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+'-'+d.getFullYear();
+    ws.getCell(1,1).value='CLASSIC PACK · MANDAYS (CONTRACT LABOUR)';ws.getCell(1,1).font=fnt({size:15,bold:true,color:{argb:NAVY}});
+    ws.getCell(2,1).value=`${A} compared with ${B} · ${mode==='ultra'?'ULTRA':'LITE'} mode · ${expanded?'Expanded (contractor wise)':'Collapsed (totals only)'} · Downloaded ${ds}`;ws.getCell(2,1).font=fnt({color:{argb:'FF444444'}});
+    ws.getCell(3,1).value='Up to Oct 2026 from the Excel history; from Nov 2026 live from Payroll. FY 2025-26 has monthly totals only (no contractor split). Planned months show the planned figure in italics, or "Planned" when none is entered.'+(mode==='ultra'?' ULTRA: Excel-based months are on the LITE basis.':'');ws.getCell(3,1).font=fnt({size:9,italic:true,color:{argb:'FF666666'}});
+    const t1=7,t2=t1+per+3,t3=t2+4*per+3,mrow=i=>t3+i*per,end=t3+12*per;
+    const title=(r,t)=>{for(let c=1;c<=5;c++)ws.getCell(r,c).fill=fill(NAVY);ws.getCell(r,1).value=t;ws.getCell(r,1).font=fnt({bold:true,size:11,color:{argb:GOLD}})};
+    const header=(r,f)=>[f,A,B,'Difference','%'].forEach((t,c)=>{const x=ws.getCell(r,c+1);x.value=t;x.font=fnt({bold:true,color:{argb:GOLD}});x.fill=fill(NAVY);x.border=box;x.alignment={horizontal:c?'right':'left',vertical:'middle'}});
+    const isN=v=>typeof v==='number';
+    // cell spec: {f,v} formula+value, or plain value (number|string|null)
+    const put=(r,label,a,b,kind,opt)=>{opt=opt||{};const bg=kind==='tot'?TOT:kind==='sub'?YEL:WHITE;
+      const setv=(c,s)=>{const x=ws.getCell(r,c);if(s&&typeof s==='object')x.value={formula:s.f,result:s.v};else x.value=s;return x};
+      setv(1,label);const av=a&&typeof a==='object'?a.v:a,bv=b&&typeof b==='object'?b.v:b;setv(2,a);setv(3,b);
+      const okk=isN(av)&&isN(bv);
+      ws.getCell(r,4).value={formula:`IF(AND(ISNUMBER(B${r}),ISNUMBER(C${r})),B${r}-C${r},"—")`,result:okk?av-bv:'—'};
+      ws.getCell(r,5).value={formula:`IF(AND(ISNUMBER(B${r}),ISNUMBER(C${r})),IF(C${r}=0,"—",(B${r}-C${r})/C${r}),"—")`,result:okk?(bv?(av-bv)/bv:'—'):'—'};
+      for(let c=1;c<=5;c++){const x=ws.getCell(r,c);x.fill=fill(bg);x.border=box;x.font=fnt({bold:kind==='tot',color:{argb:'FF000000'}});if(c>1)x.alignment={horizontal:'right'};if(c>=2&&c<=4)x.numFmt=NUM}
+      ws.getCell(r,5).numFmt=PCT;if(kind==='sub')ws.getCell(r,1).alignment={indent:2};
+      if(opt.plan)ws.getCell(r,2).font=fnt({italic:true,color:{argb:'FF8A5200'}});
+      if(kind==='sub')ws.getRow(r).outlineLevel=1};
+    const sum=a=>a.reduce((x,y)=>x+(isN(y)?y:0),0);
+    // ---- table 3 values
+    const mA=i=>M[i].a.tot,mB=i=>M[i].b.tot,cA=(i,c)=>M[i].a.split?(M[i].a.by[c]||0):'—',cB=(i,c)=>M[i].b.split?(M[i].b.by[c]||0):'—';
+    title(t3-2,'TABLE 3 · MONTH WISE');header(t3-1,'Month');
+    for(let i=0;i<12;i++){const r=mrow(i),a=M[i].a;let av;
+      if(!a.any)av='Planned';else if(expanded&&a.split&&!a.plan)av={f:`SUM(B${r+1}:B${r+nC})`,v:sum(CON.map(c=>cA(i,c)))};else av=a.tot;
+      put(r,MN[i]+(a.plan?' (planned)':''),av,hasB(i)?mB(i):'—','tot',{plan:!a.any||a.plan});
+      if(!a.any)ws.getCell(r,2).alignment={horizontal:'right'};
+      if(expanded)CON.forEach((c,k)=>put(r+1+k,c,a.any&&!a.plan?cA(i,c):'—',M[i].b.split?cB(i,c):'—','sub'))}
+    const refs=(col,ix,off)=>ix.map(i=>col+(mrow(i)+off)).join(',');
+    const totRow=(col,ix,off)=>ix.length?{f:`SUM(${refs(col,ix,off)})`,v:sum(ix.map(i=>col==='B'?(off?cA(i,CON[off-1]):mA(i)):(off?cB(i,CON[off-1]):mB(i))))}:'—';
+    put(end,'Total (months with data in both years)',totRow('B',both,0),totRow('C',both,0),'tot');
+    // ---- table 1
+    title(t1-2,'TABLE 1 · YEAR WISE COMPARISON'+(both.length?`  (${MN[both[0]]}–${MN[both[both.length-1]]}, months with data in both years)`:''));header(t1-1,'Particulars');
+    put(t1,'FY total'+(both.length?` (${MN[both[0]]}–${MN[both[both.length-1]]})`:''),totRow('B',both,0),totRow('C',both,0),'tot');
+    if(expanded)CON.forEach((c,k)=>{const okA=both.some(i=>M[i].a.split),okB=both.some(i=>M[i].b.split);
+      put(t1+1+k,c,okA?totRow('B',both,1+k):'—',okB?totRow('C',both,1+k):'—','sub')});
+    // ---- table 2
+    title(t2-2,'TABLE 2 · QUARTER WISE');header(t2-1,'Quarter');
+    for(let q=0;q<4;q++){const r=t2+q*per,ms=[3*q,3*q+1,3*q+2],msd=ms.filter(has),part=msd.length>0&&msd.length<3;
+      const qa=off=>{const ix=ms.filter(i=>has(i));return ix.length?{f:`SUM(${refs('B',ix,off)})`,v:sum(ix.map(i=>off?cA(i,CON[off-1]):mA(i)))}:(off?'—':'Planned')};
+      const qb=off=>{const ix=(msd.length?msd:ms).filter(hasB);return ix.length?{f:`SUM(${refs('C',ix,off)})`,v:sum(ix.map(i=>off?cB(i,CON[off-1]):mB(i)))}:'—'};
+      put(r,`Q${q+1} (${MN[ms[0]]}–${MN[ms[2]]})`+(part?` · part: ${msd.map(i=>MN[i]).join(', ')} only`:''),qa(0),qb(0),'tot',{plan:!msd.length});
+      if(!msd.length)ws.getCell(r,2).alignment={horizontal:'right'};
+      if(expanded)CON.forEach((c,k)=>{const okA=msd.some(i=>M[i].a.split),okB=(msd.length?msd:ms).some(i=>M[i].b.split);put(r+1+k,c,okA?qa(1+k):'—',okB?qb(1+k):'—','sub')})}
+    wb.calcProperties={fullCalcOnLoad:true};
+    const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    a.download=`MANDAYS_FY${fyl(selFY)}_${mode.toUpperCase()}_${expanded?'Expanded':'Collapsed'}.xlsx`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('Excel downloaded')
+  }catch(e){toast(emsg(e))}}
 
 function periodDefs(kind){return kind==='month'?MN.map((n,i)=>({k:'m'+i,label:n,idx:[i]})):[0,1,2,3].map(q=>({k:'q'+q,label:'Q'+(q+1)+' ('+MN[q*3]+'–'+MN[q*3+2]+')',idx:[q*3,q*3+1,q*3+2]}))}
 async function vPeriods(kind){
