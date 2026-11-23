@@ -78,10 +78,10 @@ let cmp={kind:'quarter',a:null,b:null};
 async function loadFY(fy){const k=fy+'|'+mode;if(!D[k])D[k]=(await API('mandays_month_summary',{p_fy:fy,p_mode:mode}))||[];return D[k]}
 function agg(fy,idx){const rows=D[fy+'|'+mode]||[],keys=idx.map(i=>mkey(fy,i));const by={},per=idx.map(()=>0);let tot=0,plan=false,any=false,split=false,lo=false;
   rows.forEach(r=>{const k=String(r.month).slice(0,10),p=keys.indexOf(k);if(p<0)return;const v=+r.mandays;any=true;tot+=v;per[p]+=v;
-    if(mode==='ultra'&&r.contractor==='ALL'&&r.source==='history')lo=true;
+    if(mode==='ultra'&&r.source==='history')lo=true;
     if(r.source==='plan')plan=true;else if(r.contractor!=='ALL'){by[r.contractor]=(by[r.contractor]||0)+v;split=true}});
   return{tot:any?tot:null,by,per,plan,split,any,lo}}
-const LOP=' <span class="pill" title="Counted as Man_Days + OT days only; NH days were not recorded separately">LITE basis</span>';const LONOTE='<br><b style="color:var(--gold2)">ULTRA:</b> 2025-26 totals are LITE basis (Man_Days + OT days). NH days were not recorded separately for that year, so ULTRA cannot be worked out for it.';
+const LOP=' <span class="pill" title="From your Excel: LITE basis. ULTRA is not available for this month">LITE basis</span>';const LONOTE='<br><b style="color:var(--gold2)">ULTRA:</b> figures taken from your Excel (up to Oct 2026, and all of 2025-26) are on the Excel (LITE) basis. Comp-off OT and OFF are not separate there, so ULTRA applies only from Nov 2026 (Payroll).';
 const arrow=(a,b)=>a>b?'▲':a<b?'▼':'●';
 function diffCells(a,b){if(a==null||b==null)return'<td>—</td><td>—</td>';const d=a-b;return`<td>${d>0?'+':''}${fmt(d)} <span class="ar">${arrow(a,b)}</span></td><td>${b?((d>0?'+':'')+(d/b*100).toFixed(1)+'%'):'—'}</td>`}
 
