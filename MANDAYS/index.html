@@ -135,13 +135,14 @@ function cmpOptions(kind){const o=[];for(let y=2025;y<=curFY+1;y++){
   if(kind==='quarter')[0,1,2,3].forEach(q=>o.push({v:y+'|'+q,t:'Q'+(q+1)+' '+fyl(y),fy:y,idx:[q*3,q*3+1,q*3+2]}));
   else if(kind==='half')[0,1].forEach(h=>o.push({v:y+'|'+h,t:'H'+(h+1)+' '+fyl(y),fy:y,idx:[0,1,2,3,4,5].map(i=>i+h*6)}));
   else if(kind==='month')MN.forEach((n,i)=>o.push({v:y+'|'+i,t:n+' '+fyl(y),fy:y,idx:[i]}));
-  else{const n=Math.min(12,Math.max(1,(now.getFullYear()-curFY)*12+now.getMonth()-3+1));o.push({v:y+'|0',t:'Year to date '+fyl(y)+' (Apr–'+MN[n-1]+')',fy:y,idx:[...Array(n).keys()]})}}return o}
+  else if(kind==='fy')o.push({v:y+'|0',t:'FY '+fyl(y)+' (full year, Apr–Mar)',fy:y,idx:[...Array(12).keys()]});
+  else{const n=Math.min(12,Math.max(1,(now.getFullYear()-curFY)*12+now.getMonth()-3+1));o.push({v:y+'|0',t:'FY '+fyl(y)+' · Apr–'+MN[n-1]+' (year to date)',fy:y,idx:[...Array(n).keys()]})}}return o}
 async function vCmp(){
   const opts=cmpOptions(cmp.kind);
   if(!opts.find(o=>o.v===cmp.a)||!opts.find(o=>o.v===cmp.b)){
-    if(cmp.kind==='ytd'){cmp.a=opts[opts.length-1].v;cmp.b=opts[0].v}
-    else{const per=cmp.kind==='quarter'?4:cmp.kind==='half'?2:12;const ci=Math.min(opts.length-1,(curFY-2025)*per+(cmp.kind==='quarter'?Math.floor(((now.getMonth()+9)%12)/3):cmp.kind==='half'?Math.floor(((now.getMonth()+9)%12)/6):(now.getMonth()+9)%12));
-      cmp.a=opts[ci].v;cmp.b=opts[Math.max(0,ci-per)].v}}
+    const yrs=curFY+1-2025+1,per=opts.length/yrs,cp=(now.getMonth()+9)%12;
+    const cpi=cmp.kind==='quarter'?Math.floor(cp/3):cmp.kind==='half'?Math.floor(cp/6):cmp.kind==='month'?cp:0;
+    const ci=(curFY-2025)*per+cpi;cmp.b=opts[ci].v;cmp.a=opts[Math.max(0,ci-per)].v}
   const A0=opts.find(o=>o.v===cmp.a),B0=opts.find(o=>o.v===cmp.b);
   paint('<div class="card">Loading…</div>');await loadFY(A0.fy);await loadFY(B0.fy);
   const A=agg(A0.fy,A0.idx),B=agg(B0.fy,B0.idx);
@@ -153,11 +154,11 @@ async function vCmp(){
   for(let i=0;i<n;i++){const x=50+i*((W-60)/n),ha=(A.per[i]||0)/mx*(H-pad-20),hb=(B.per[i]||0)/mx*(H-pad-20),la=A0.idx[i]!=null?MN[A0.idx[i]]:'';
     bars+=`<rect x="${x}" y="${H-pad-ha}" width="${bw}" height="${ha}" fill="var(--A)" rx="3"/><text x="${x+bw/2}" y="${H-pad-ha-4}" fill="#e8eefc" font-size="10" text-anchor="middle">${A.per[i]?fmt(A.per[i]):''}</text><rect x="${x+bw+4}" y="${H-pad-hb}" width="${bw}" height="${hb}" fill="var(--B)" rx="3"/><text x="${x+bw*1.5+4}" y="${H-pad-hb-4}" fill="#e8eefc" font-size="10" text-anchor="middle">${B.per[i]?fmt(B.per[i]):''}</text><text x="${x+bw+2}" y="${H-10}" fill="#aebce0" font-size="11" text-anchor="middle">${la}</text>`}
   const sel=(id,v)=>`<select id="${id}">${opts.map(o=>`<option value="${o.v}" ${o.v===v?'selected':''}>${esc(o.t)}</option>`).join('')}</select>`;
-  paint(`<div class="bar"><label class="f">Compare what?<select id="ck">${[['quarter','Quarter vs Quarter'],['half','Half-year (H1 / H2)'],['month','Month vs Month'],['ytd','Year to date']].map(k=>`<option value="${k[0]}" ${k[0]===cmp.kind?'selected':''}>${k[1]}</option>`).join('')}</select></label><label class="f">A (blue)${sel('ca',cmp.a)}</label><label class="f">B (orange)${sel('cb',cmp.b)}</label></div>
+  paint(`<div class="bar"><label class="f">Compare what?<select id="ck">${[['quarter','Quarter vs Quarter'],['half','Half-year (H1 / H2)'],['month','Month vs Month'],['ytd','Year to date (Apr to this month)'],['fy','Full financial year']].map(k=>`<option value="${k[0]}" ${k[0]===cmp.kind?'selected':''}>${k[1]}</option>`).join('')}</select></label><label class="f">A (blue)${sel('ca',cmp.a)}</label><label class="f">B (orange)${sel('cb',cmp.b)}</label></div>
   <div class="card"><table><tr><th>Contractor</th><th>A · ${esc(A0.t)}</th><th>B · ${esc(B0.t)}</th><th>Difference (A − B)</th><th>%</th></tr>${body}</table>
   <div class="note">${partial?`<b style="color:var(--gold2)">Not like-for-like:</b> A has data for ${nA} of ${A0.idx.length} months and B for ${nB} of ${B0.idx.length}, so the difference is not a full comparison.<br>`:''}Click Total to open contractors.${(A.any&&!A.split)||(B.any&&!B.split)?' One side has a total only (no contractor split), so contractor differences are not shown for it.':''}</div></div>
   <div class="card" style="margin-top:14px"><div class="leg"><span><i style="background:var(--A)"></i>A · ${esc(A0.t)}</span><span><i style="background:var(--B)"></i>B · ${esc(B0.t)}</span><span class="mut">Month by month, aligned by position</span></div><svg viewBox="0 0 ${W} ${H}" width="100%" style="max-height:300px">${bars}<line x1="44" y1="${H-pad}" x2="${W-6}" y2="${H-pad}" stroke="#2a4a86"/></svg></div>`);
-  $('#ck').onchange=e=>{cmp.kind=e.target.value;cmp.a=cmp.b=null;vCmp()};$('#ca').onchange=e=>{cmp.a=e.target.value;vCmp()};$('#cb').onchange=e=>{cmp.b=e.target.value;vCmp()};
+  $('#ck').onchange=e=>{cmp.kind=e.target.value;cmp.a=cmp.b=null;vCmp()};$('#ca').onchange=e=>{cmp.a=e.target.value;const pr=cmp.a.split('|'),ty=(+pr[0]===curFY)?curFY-1:curFY,nb=ty+'|'+pr[1];if(opts.find(o=>o.v===nb))cmp.b=nb;vCmp()};$('#cb').onchange=e=>{cmp.b=e.target.value;vCmp()};
   document.querySelectorAll('tr.par').forEach(r=>r.onclick=()=>{openSet.has('cmp')?openSet.delete('cmp'):openSet.add('cmp');vCmp()})}
 
 function stopPage(msg,link){$('#root').innerHTML=`<div class="big"><h2 style="color:var(--gold)">${esc(msg)}</h2><p><a class="back" href="${link||WS}">${link?'Go to the Gateway of CP':'Back to Workspace'}</a></p></div>`}
