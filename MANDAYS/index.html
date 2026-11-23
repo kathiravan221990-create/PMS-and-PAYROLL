@@ -76,10 +76,12 @@ let me=null,mode='lite',tab='day',selFY=curFY,dayMonth=now.getFullYear()+'-'+Str
 let cmp={kind:'quarter',a:null,b:null};
 
 async function loadFY(fy){const k=fy+'|'+mode;if(!D[k])D[k]=(await API('mandays_month_summary',{p_fy:fy,p_mode:mode}))||[];return D[k]}
-function agg(fy,idx){const rows=D[fy+'|'+mode]||[],keys=idx.map(i=>mkey(fy,i));const by={},per=idx.map(()=>0);let tot=0,plan=false,any=false,split=false;
+function agg(fy,idx){const rows=D[fy+'|'+mode]||[],keys=idx.map(i=>mkey(fy,i));const by={},per=idx.map(()=>0);let tot=0,plan=false,any=false,split=false,lo=false;
   rows.forEach(r=>{const k=String(r.month).slice(0,10),p=keys.indexOf(k);if(p<0)return;const v=+r.mandays;any=true;tot+=v;per[p]+=v;
+    if(mode==='ultra'&&r.contractor==='ALL'&&r.source==='history')lo=true;
     if(r.source==='plan')plan=true;else if(r.contractor!=='ALL'){by[r.contractor]=(by[r.contractor]||0)+v;split=true}});
-  return{tot:any?tot:null,by,per,plan,split,any}}
+  return{tot:any?tot:null,by,per,plan,split,any,lo}}
+const LOP=' <span class="pill" title="Counted as Man_Days + OT days only; NH days were not recorded separately">LITE basis</span>';const LONOTE='<br><b style="color:var(--gold2)">ULTRA:</b> 2025-26 totals are LITE basis (Man_Days + OT days). NH days were not recorded separately for that year, so ULTRA cannot be worked out for it.';
 const arrow=(a,b)=>a>b?'▲':a<b?'▼':'●';
 function diffCells(a,b){if(a==null||b==null)return'<td>—</td><td>—</td>';const d=a-b;return`<td>${d>0?'+':''}${fmt(d)} <span class="ar">${arrow(a,b)}</span></td><td>${b?((d>0?'+':'')+(d/b*100).toFixed(1)+'%'):'—'}</td>`}
 
@@ -119,12 +121,12 @@ async function vPeriods(kind){
     if(!A.any&&kind==='month')aCell=`<span class="pill">Planned</span> <input class="pl" data-m="${mkey(selFY,d.idx[0])}" placeholder="mandays"> <button class="b l" data-save="${mkey(selFY,d.idx[0])}">Save</button>`;
     else aCell=fmt(A.tot)+(A.plan?' <span class="pill">Planned</span>':'');
     const planRow=A.plan&&kind==='month'?` <button class="b l" data-clr="${mkey(selFY,d.idx[0])}">Clear</button>`:'';
-    body+=`<tr class="${canX?'par':''}" data-k="${kind+d.k}"><td><span class="tg">${canX?(open?'▾':'▸'):''}</span>${esc(d.label)}</td><td>${aCell}${planRow}</td><td>${fmt(B.tot)}</td>${diffCells(A.tot,B.tot)}</tr>`;
+    body+=`<tr class="${canX?'par':''}" data-k="${kind+d.k}"><td><span class="tg">${canX?(open?'▾':'▸'):''}</span>${esc(d.label)}</td><td>${aCell}${A.lo?LOP:''}${planRow}</td><td>${fmt(B.tot)}${B.lo?LOP:''}</td>${diffCells(A.tot,B.tot)}</tr>`;
     if(open&&canX){[...new Set([...Object.keys(A.by),...Object.keys(B.by)])].sort().forEach(c=>{const a=A.by[c]||0,b=B.split?(B.by[c]||0):null;body+=`<tr class="sub"><td>${esc(c)}</td><td>${fmt(a)}</td><td>${fmt(b)}</td>${diffCells(a,b)}</tr>`})}});
   paint(`<div class="bar"><label class="f">Financial year<select id="fy">${fyOpts.map(y=>`<option value="${y}" ${y===selFY?'selected':''}>${fyl(y)}</option>`).join('')}</select></label><span class="mut">Compared with ${fyl(selFY-1)}</span></div>
   <div class="card"><table><tr><th>${kind==='month'?'Month':'Quarter'}</th><th>FY ${fyl(selFY)}</th><th>FY ${fyl(selFY-1)}</th><th>Difference</th><th>%</th></tr>${body}
   <tr class="tot"><td>Total (months with data in both years)</td><td>${fmt(anyA?tA:null)}</td><td>${fmt(anyB?tB:null)}</td>${diffCells(anyA?tA:null,anyB?tB:null)}</tr></table>
-  <div class="note">Click a row to see contractors. Up to Oct 2026 from the Excel history; from Nov 2026 live from Payroll. Months with no data are Planned: enter expected mandays, replaced by real Payroll data once it arrives. FY 2025-26 has monthly totals only (no contractor split).</div></div>`);
+  <div class="note">Click a row to see contractors. Up to Oct 2026 from the Excel history; from Nov 2026 live from Payroll. Months with no data are Planned: enter expected mandays, replaced by real Payroll data once it arrives. FY 2025-26 has monthly totals only (no contractor split).${mode==='ultra'?LONOTE:''}</div></div>`);
   $('#fy').onchange=e=>{selFY=+e.target.value;vPeriods(kind)};
   document.querySelectorAll('tr.par').forEach(r=>r.onclick=()=>{const k=r.dataset.k;openSet.has(k)?openSet.delete(k):openSet.add(k);vPeriods(kind)});
   document.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{const m=b.dataset.save,v=parseFloat(document.querySelector('input[data-m="'+m+'"]').value);if(!(v>=0))return toast('Enter a number');
@@ -148,7 +150,7 @@ async function vCmp(){
   const A=agg(A0.fy,A0.idx),B=agg(B0.fy,B0.idx);
   const cons=[...new Set([...Object.keys(A.by),...Object.keys(B.by)])].sort(),open=openSet.has('cmp');
   const cnt=(fy,ix)=>ix.filter(i=>(D[fy+'|'+mode]||[]).some(r=>String(r.month).slice(0,10)===mkey(fy,i))).length,nA=cnt(A0.fy,A0.idx),nB=cnt(B0.fy,B0.idx),partial=(nA<A0.idx.length||nB<B0.idx.length);
-  let body=`<tr class="par" data-k="cmp"><td><span class="tg">${cons.length?(open?'▾':'▸'):''}</span>Total mandays</td><td>${fmt(A.tot)}${A.plan?' <span class="pill">Planned</span>':''}</td><td>${fmt(B.tot)}${B.plan?' <span class="pill">Planned</span>':''}</td>${diffCells(A.tot,B.tot)}</tr>`;
+  let body=`<tr class="par" data-k="cmp"><td><span class="tg">${cons.length?(open?'▾':'▸'):''}</span>Total mandays</td><td>${fmt(A.tot)}${A.plan?' <span class="pill">Planned</span>':''}${A.lo?LOP:''}</td><td>${fmt(B.tot)}${B.plan?' <span class="pill">Planned</span>':''}${B.lo?LOP:''}</td>${diffCells(A.tot,B.tot)}</tr>`;
   if(open)cons.forEach(c=>{const a=A.split?(A.by[c]||0):null,b=B.split?(B.by[c]||0):null;body+=`<tr class="sub"><td>${esc(c)}</td><td>${fmt(a)}</td><td>${fmt(b)}</td>${diffCells(a,b)}</tr>`});
   const n=Math.max(A0.idx.length,B0.idx.length),mx=Math.max(1,...A.per,...B.per),W=Math.max(520,n*(n>6?70:110)),H=240,pad=30,bw=Math.min(34,(W-60)/n/2.6);let bars='';
   for(let i=0;i<n;i++){const x=50+i*((W-60)/n),ha=(A.per[i]||0)/mx*(H-pad-20),hb=(B.per[i]||0)/mx*(H-pad-20),la=A0.idx[i]!=null?MN[A0.idx[i]]:'';
@@ -156,7 +158,7 @@ async function vCmp(){
   const sel=(id,v)=>`<select id="${id}">${opts.map(o=>`<option value="${o.v}" ${o.v===v?'selected':''}>${esc(o.t)}</option>`).join('')}</select>`;
   paint(`<div class="bar"><label class="f">Compare what?<select id="ck">${[['quarter','Quarter vs Quarter'],['half','Half-year (H1 / H2)'],['month','Month vs Month'],['ytd','Year to date (Apr to this month)'],['fy','Full financial year']].map(k=>`<option value="${k[0]}" ${k[0]===cmp.kind?'selected':''}>${k[1]}</option>`).join('')}</select></label><label class="f">A (blue)${sel('ca',cmp.a)}</label><label class="f">B (orange)${sel('cb',cmp.b)}</label></div>
   <div class="card"><table><tr><th>Contractor</th><th>A · ${esc(A0.t)}</th><th>B · ${esc(B0.t)}</th><th>Difference (A − B)</th><th>%</th></tr>${body}</table>
-  <div class="note">${partial?`<b style="color:var(--gold2)">Not like-for-like:</b> A has data for ${nA} of ${A0.idx.length} months and B for ${nB} of ${B0.idx.length}, so the difference is not a full comparison.<br>`:''}Click Total to open contractors.${(A.any&&!A.split)||(B.any&&!B.split)?' One side has a total only (no contractor split), so contractor differences are not shown for it.':''}</div></div>
+  <div class="note">${partial?`<b style="color:var(--gold2)">Not like-for-like:</b> A has data for ${nA} of ${A0.idx.length} months and B for ${nB} of ${B0.idx.length}, so the difference is not a full comparison.<br>`:''}Click Total to open contractors.${(A.lo||B.lo)?LONOTE:''}${(A.any&&!A.split)||(B.any&&!B.split)?' One side has a total only (no contractor split), so contractor differences are not shown for it.':''}</div></div>
   <div class="card" style="margin-top:14px"><div class="leg"><span><i style="background:var(--A)"></i>A · ${esc(A0.t)}</span><span><i style="background:var(--B)"></i>B · ${esc(B0.t)}</span><span class="mut">Month by month, aligned by position</span></div><svg viewBox="0 0 ${W} ${H}" width="100%" style="max-height:300px">${bars}<line x1="44" y1="${H-pad}" x2="${W-6}" y2="${H-pad}" stroke="#2a4a86"/></svg></div>`);
   $('#ck').onchange=e=>{cmp.kind=e.target.value;cmp.a=cmp.b=null;vCmp()};$('#ca').onchange=e=>{cmp.a=e.target.value;const pr=cmp.a.split('|'),ty=(+pr[0]===curFY)?curFY-1:curFY,nb=ty+'|'+pr[1];if(opts.find(o=>o.v===nb))cmp.b=nb;vCmp()};$('#cb').onchange=e=>{cmp.b=e.target.value;vCmp()};
   document.querySelectorAll('tr.par').forEach(r=>r.onclick=()=>{openSet.has('cmp')?openSet.delete('cmp'):openSet.add('cmp');vCmp()})}
