@@ -51,7 +51,7 @@ tr.par{cursor:pointer}tr.par:hover td{background:#17418a}.tg{display:inline-bloc
 .err{background:#4a1015;border:1px solid #a4161a;border-radius:10px;padding:14px;margin:20px}.big{max-width:560px;margin:80px auto;text-align:center;background:var(--panel);border:1px solid var(--gold);border-radius:16px;padding:34px}
 .leg{display:flex;gap:16px;font-size:12px;margin:8px 0}.leg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--gold);color:#000;padding:9px 18px;border-radius:9px;font-weight:700;display:none;z-index:50}
-</style></head><body>
+tr.par2{cursor:pointer}tr.par2:hover td{background:#ffec9c}tr.sub2 td{background:#ffe99a;color:#000;font-size:12.5px;border-top:1px solid #e0cc7a}tr.sub2 td:first-child{padding-left:56px;font-weight:600}</style></head><body>
 <div id="root"><div class="big">Loading MANDAYS…</div></div><div id="toast"></div>
 <script>
 const SB_URL='https://axnxhqcvevviwnncplwt.supabase.co';
@@ -75,13 +75,17 @@ const D={};
 let me=null,mode='lite',tab='day',selFY=curFY,dayMonth=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'),openSet=new Set();
 let cmp={kind:'quarter',a:null,b:null};
 
-async function loadFY(fy){const k=fy+'|'+mode;if(!D[k])D[k]=(await API('mandays_month_summary',{p_fy:fy,p_mode:mode}))||[];return D[k]}
+async function loadFY(fy){const k=fy+'|'+mode;if(!D[k]){D[k]=(await API('mandays_month_summary',{p_fy:fy,p_mode:mode}))||[];try{D[k+'|s']=(await API('mandays_split_summary',{p_fy:fy,p_mode:mode}))||[]}catch(e){D[k+'|s']=[]}}return D[k]}
 function agg(fy,idx){const rows=D[fy+'|'+mode]||[],keys=idx.map(i=>mkey(fy,i));const by={},per=idx.map(()=>0);let tot=0,plan=false,any=false,split=false,lo=false;
   rows.forEach(r=>{const k=String(r.month).slice(0,10),p=keys.indexOf(k);if(p<0)return;const v=+r.mandays;any=true;tot+=v;per[p]+=v;
     if(mode==='ultra'&&r.source==='history')lo=true;
     if(r.source==='plan')plan=true;else if(r.contractor!=='ALL'){by[r.contractor]=(by[r.contractor]||0)+v;split=true}});
-  return{tot:any?tot:null,by,per,plan,split,any,lo}}
+  const by2={};(D[fy+'|'+mode+'|s']||[]).forEach(r=>{const k=String(r.month).slice(0,10);if(keys.indexOf(k)<0)return;const c=r.contractor;(by2[c]=by2[c]||{})[r.sub]=(by2[c][r.sub]||0)+(+r.mandays)});return{tot:any?tot:null,by,per,plan,split,any,lo,by2}}
 const LOP=' <span class="pill" title="From your Excel: LITE basis. ULTRA is not available for this month">LITE basis</span>';const LONOTE='<br><b style="color:var(--gold2)">ULTRA:</b> figures taken from your Excel (up to Oct 2026, and all of 2025-26) are on the Excel (LITE) basis. Comp-off OT and OFF are not separate there, so ULTRA applies only from Nov 2026 (Payroll).';
+function subList(c,A,B){return [...new Set([...Object.keys((A.by2||{})[c]||{}),...Object.keys((B.by2||{})[c]||{})])].sort()}
+function conRows(pre,c,a,b,A,B){const sl=subList(c,A,B),key=pre+'|'+c,o=openSet.has(key);let h=`<tr class="sub${sl.length?' par2':''}" data-k2="${esc(key)}"><td><span class="tg">${sl.length?(o?'▾':'▸'):''}</span>${esc(c)}</td><td>${fmt(a)}</td><td>${fmt(b)}</td>${diffCells(a,b)}</tr>`;
+  if(o)sl.forEach(n=>{const x=((A.by2||{})[c]||{})[n],y=((B.by2||{})[c]||{})[n],av=A.split?(x||0):null,bv=B.split?(y||0):null;h+=`<tr class="sub2"><td>${esc(n)}</td><td>${fmt(av)}</td><td>${fmt(bv)}</td>${diffCells(av,bv)}</tr>`});return h}
+function wire2(redo){document.querySelectorAll('tr.par2').forEach(r=>r.onclick=e=>{e.stopPropagation();const k=r.dataset.k2;openSet.has(k)?openSet.delete(k):openSet.add(k);redo()})}
 const arrow=(a,b)=>a>b?'▲':a<b?'▼':'●';
 function diffCells(a,b){if(a==null||b==null)return'<td>—</td><td>—</td>';const d=a-b;return`<td>${d>0?'+':''}${fmt(d)} <span class="ar">${arrow(a,b)}</span></td><td>${b?((d>0?'+':'')+(d/b*100).toFixed(1)+'%'):'—'}</td>`}
 
@@ -120,9 +124,12 @@ async function dlExcel(expanded){
     const NAVY='FF07173A',GOLD='FFD9B341',YEL='FFFFF5C9',TOT='FFDCE6F7',WHITE='FFFFFFFF',NUM='#,##0.0;-#,##0.0;"-"',PCT='+0.0%;-0.0%;0.0%';
     const M=[...Array(12).keys()].map(i=>({a:agg(selFY,[i]),b:agg(selFY-1,[i])}));
     const CON=[...new Set(M.flatMap(m=>[...Object.keys(m.a.by),...Object.keys(m.b.by)]))].sort();
-    const nC=expanded?CON.length:0,per=1+nC,has=i=>M[i].a.any,hasB=i=>M[i].b.any;
+    const SUBN=c=>[...new Set(M.flatMap(m=>[...Object.keys((m.a.by2||{})[c]||{}),...Object.keys((m.b.by2||{})[c]||{})]))].sort();
+    const LN=[];CON.forEach(c=>{LN.push({n:c,s:false,p:c});SUBN(c).forEach(n=>LN.push({n,s:true,p:c}))});const TOPS=LN.map((l,k)=>l.s?-1:k).filter(k=>k>=0);
+    const lvA=(i,L)=>M[i].a.split?(L.s?(((M[i].a.by2||{})[L.p]||{})[L.n]||0):(M[i].a.by[L.p]||0)):'—',lvB=(i,L)=>M[i].b.split?(L.s?(((M[i].b.by2||{})[L.p]||{})[L.n]||0):(M[i].b.by[L.p]||0)):'—';
+    const nC=expanded?LN.length:0,per=1+nC,has=i=>M[i].a.any,hasB=i=>M[i].b.any;
     const both=[...Array(12).keys()].filter(i=>has(i)&&hasB(i));
-    const wb=new ExcelJS.Workbook();wb.creator='Classic Pack Workspace';const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false}},pageSetup:{orientation:'portrait',scale:72}});
+    const wb=new ExcelJS.Workbook();wb.creator='Classic Pack Workspace';const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false},outlineLevelRow:expanded?3:0},pageSetup:{orientation:'portrait',scale:72}});
     [44,16,16,18,12].forEach((w,i)=>ws.getColumn(i+1).width=w);
     const A='FY '+fyl(selFY),B='FY '+fyl(selFY-1),fnt=(o)=>Object.assign({name:'Arial',size:10},o||{}),fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),thin={style:'thin',color:{argb:'FFB8C4DC'}},box={left:thin,right:thin,top:thin,bottom:thin};
     const d=new Date(),ds=String(d.getDate()).padStart(2,'0')+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+'-'+d.getFullYear();
@@ -134,41 +141,41 @@ async function dlExcel(expanded){
     const header=(r,f)=>[f,A,B,'Difference','%'].forEach((t,c)=>{const x=ws.getCell(r,c+1);x.value=t;x.font=fnt({bold:true,color:{argb:GOLD}});x.fill=fill(NAVY);x.border=box;x.alignment={horizontal:c?'right':'left',vertical:'middle'}});
     const isN=v=>typeof v==='number';
     // cell spec: {f,v} formula+value, or plain value (number|string|null)
-    const put=(r,label,a,b,kind,opt)=>{opt=opt||{};const bg=kind==='tot'?TOT:kind==='sub'?YEL:WHITE;
+    const put=(r,label,a,b,kind,opt)=>{opt=opt||{};const bg=kind==='tot'?TOT:kind==='sub'?YEL:kind==='sub2'?'FFFFE99A':WHITE;
       const setv=(c,s)=>{const x=ws.getCell(r,c);if(s&&typeof s==='object')x.value={formula:s.f,result:s.v};else x.value=s;return x};
       setv(1,label);const av=a&&typeof a==='object'?a.v:a,bv=b&&typeof b==='object'?b.v:b;setv(2,a);setv(3,b);
       const okk=isN(av)&&isN(bv);
       ws.getCell(r,4).value={formula:`IF(AND(ISNUMBER(B${r}),ISNUMBER(C${r})),B${r}-C${r},"—")`,result:okk?av-bv:'—'};
       ws.getCell(r,5).value={formula:`IF(AND(ISNUMBER(B${r}),ISNUMBER(C${r})),IF(C${r}=0,"—",(B${r}-C${r})/C${r}),"—")`,result:okk?(bv?(av-bv)/bv:'—'):'—'};
       for(let c=1;c<=5;c++){const x=ws.getCell(r,c);x.fill=fill(bg);x.border=box;x.font=fnt({bold:kind==='tot',color:{argb:'FF000000'}});if(c>1)x.alignment={horizontal:'right'};if(c>=2&&c<=4)x.numFmt=NUM}
-      ws.getCell(r,5).numFmt=PCT;if(kind==='sub')ws.getCell(r,1).alignment={indent:2};
+      ws.getCell(r,5).numFmt=PCT;if(kind==='sub')ws.getCell(r,1).alignment={indent:2};if(kind==='sub2')ws.getCell(r,1).alignment={indent:4};
       if(opt.plan)ws.getCell(r,2).font=fnt({italic:true,color:{argb:'FF8A5200'}});
-      if(kind==='sub')ws.getRow(r).outlineLevel=1};
+      if(kind==='sub')ws.getRow(r).outlineLevel=1;if(kind==='sub2')ws.getRow(r).outlineLevel=2};
     const sum=a=>a.reduce((x,y)=>x+(isN(y)?y:0),0);
     // ---- table 3 values
-    const mA=i=>M[i].a.tot,mB=i=>M[i].b.tot,cA=(i,c)=>M[i].a.split?(M[i].a.by[c]||0):'—',cB=(i,c)=>M[i].b.split?(M[i].b.by[c]||0):'—';
+    const mA=i=>M[i].a.tot,mB=i=>M[i].b.tot;
     title(t3-2,'TABLE 3 · MONTH WISE');header(t3-1,'Month');
     for(let i=0;i<12;i++){const r=mrow(i),a=M[i].a;let av;
-      if(!a.any)av='Planned';else if(expanded&&a.split&&!a.plan)av={f:`SUM(B${r+1}:B${r+nC})`,v:sum(CON.map(c=>cA(i,c)))};else av=a.tot;
+      if(!a.any)av='Planned';else if(expanded&&a.split&&!a.plan)av={f:`SUM(${TOPS.map(t=>'B'+(r+1+t)).join(',')})`,v:sum(TOPS.map(t=>lvA(i,LN[t])))};else av=a.tot;
       put(r,MN[i]+(a.plan?' (planned)':''),av,hasB(i)?mB(i):'—','tot',{plan:!a.any||a.plan});
       if(!a.any)ws.getCell(r,2).alignment={horizontal:'right'};
-      if(expanded)CON.forEach((c,k)=>put(r+1+k,c,a.any&&!a.plan?cA(i,c):'—',M[i].b.split?cB(i,c):'—','sub'))}
+      if(expanded)LN.forEach((L,k)=>put(r+1+k,L.n,a.any&&!a.plan?lvA(i,L):'—',M[i].b.split?lvB(i,L):'—',L.s?'sub2':'sub'))}
     const refs=(col,ix,off)=>ix.map(i=>col+(mrow(i)+off)).join(',');
-    const totRow=(col,ix,off)=>ix.length?{f:`SUM(${refs(col,ix,off)})`,v:sum(ix.map(i=>col==='B'?(off?cA(i,CON[off-1]):mA(i)):(off?cB(i,CON[off-1]):mB(i))))}:'—';
+    const totRow=(col,ix,off)=>ix.length?{f:`SUM(${refs(col,ix,off)})`,v:sum(ix.map(i=>col==='B'?(off?lvA(i,LN[off-1]):mA(i)):(off?lvB(i,LN[off-1]):mB(i))))}:'—';
     put(end,'Total (months with data in both years)',totRow('B',both,0),totRow('C',both,0),'tot');
     // ---- table 1
     title(t1-2,'TABLE 1 · YEAR WISE COMPARISON'+(both.length?`  (${MN[both[0]]}–${MN[both[both.length-1]]}, months with data in both years)`:''));header(t1-1,'Particulars');
     put(t1,'FY total'+(both.length?` (${MN[both[0]]}–${MN[both[both.length-1]]})`:''),totRow('B',both,0),totRow('C',both,0),'tot');
-    if(expanded)CON.forEach((c,k)=>{const okA=both.some(i=>M[i].a.split),okB=both.some(i=>M[i].b.split);
-      put(t1+1+k,c,okA?totRow('B',both,1+k):'—',okB?totRow('C',both,1+k):'—','sub')});
+    if(expanded)LN.forEach((L,k)=>{const okA=both.some(i=>M[i].a.split),okB=both.some(i=>M[i].b.split);
+      put(t1+1+k,L.n,okA?totRow('B',both,1+k):'—',okB?totRow('C',both,1+k):'—',L.s?'sub2':'sub')});
     // ---- table 2
     title(t2-2,'TABLE 2 · QUARTER WISE');header(t2-1,'Quarter');
     for(let q=0;q<4;q++){const r=t2+q*per,ms=[3*q,3*q+1,3*q+2],msd=ms.filter(has),part=msd.length>0&&msd.length<3;
-      const qa=off=>{const ix=ms.filter(i=>has(i));return ix.length?{f:`SUM(${refs('B',ix,off)})`,v:sum(ix.map(i=>off?cA(i,CON[off-1]):mA(i)))}:(off?'—':'Planned')};
-      const qb=off=>{const ix=(msd.length?msd:ms).filter(hasB);return ix.length?{f:`SUM(${refs('C',ix,off)})`,v:sum(ix.map(i=>off?cB(i,CON[off-1]):mB(i)))}:'—'};
+      const qa=off=>{const ix=ms.filter(i=>has(i));return ix.length?{f:`SUM(${refs('B',ix,off)})`,v:sum(ix.map(i=>off?lvA(i,LN[off-1]):mA(i)))}:(off?'—':'Planned')};
+      const qb=off=>{const ix=(msd.length?msd:ms).filter(hasB);return ix.length?{f:`SUM(${refs('C',ix,off)})`,v:sum(ix.map(i=>off?lvB(i,LN[off-1]):mB(i)))}:'—'};
       put(r,`Q${q+1} (${MN[ms[0]]}–${MN[ms[2]]})`+(part?` · part: ${msd.map(i=>MN[i]).join(', ')} only`:''),qa(0),qb(0),'tot',{plan:!msd.length});
       if(!msd.length)ws.getCell(r,2).alignment={horizontal:'right'};
-      if(expanded)CON.forEach((c,k)=>{const okA=msd.some(i=>M[i].a.split),okB=(msd.length?msd:ms).some(i=>M[i].b.split);put(r+1+k,c,okA?qa(1+k):'—',okB?qb(1+k):'—','sub')})}
+      if(expanded)LN.forEach((L,k)=>{const okA=msd.some(i=>M[i].a.split),okB=(msd.length?msd:ms).some(i=>M[i].b.split);put(r+1+k,L.n,okA?qa(1+k):'—',okB?qb(1+k):'—',L.s?'sub2':'sub')})}
     wb.calcProperties={fullCalcOnLoad:true};
     const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
     a.download=`MANDAYS_FY${fyl(selFY)}_${mode.toUpperCase()}_${expanded?'Expanded':'Collapsed'}.xlsx`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('Excel downloaded')
@@ -185,7 +192,7 @@ async function dlCompare(expanded){
     const CON=expanded?[...new Set([...Object.keys(A.by),...Object.keys(B.by)])].sort():[];
     const cnt=(fy,ix)=>ix.filter(i=>agg(fy,[i]).any).length,nA=cnt(A0.fy,A0.idx),nB=cnt(B0.fy,B0.idx),partial=nA<A0.idx.length||nB<B0.idx.length;
     const wb=new ExcelJS.Workbook();wb.creator='Classic Pack Workspace';
-    const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false}},pageSetup:{orientation:'portrait',scale:72}});
+    const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false},outlineLevelRow:expanded?3:0},pageSetup:{orientation:'portrait',scale:72}});
     [44,18,18,18,12].forEach((w,i)=>ws.getColumn(i+1).width=w);
     const fnt=o=>Object.assign({name:'Arial',size:10},o||{}),fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),thin={style:'thin',color:{argb:'FFB8C4DC'}},box={left:thin,right:thin,top:thin,bottom:thin};
     const d=new Date(),ds=String(d.getDate()).padStart(2,'0')+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+'-'+d.getFullYear();
@@ -194,17 +201,18 @@ async function dlCompare(expanded){
     ws.getCell(2,1).value=`${A0.t} compared with ${B0.t} · ${mode==='ultra'?'ULTRA':'LITE'} mode · ${expanded?'Expanded (contractor wise)':'Collapsed (totals only)'} · Downloaded ${ds}`;ws.getCell(2,1).font=fnt({color:{argb:'FF444444'}});
     ws.getCell(3,1).value=(partial?`Not like-for-like: A has data for ${nA} of ${A0.idx.length} months and B for ${nB} of ${B0.idx.length}. `:'')+'Up to Oct 2026 from the Excel history; from Nov 2026 live from Payroll. FY 2025-26 has monthly totals only (no contractor split).'+(mode==='ultra'?' ULTRA: Excel-based months are on the LITE basis.':'');
     ws.getCell(3,1).font=fnt({size:9,italic:true,color:{argb:partial?'FF8A5200':'FF666666'}});
-    const per=1+CON.length,t1=7,t2=t1+per+4,m0=t2+1;
+    const LNc=[];CON.forEach(c=>{LNc.push({n:c,s:false,p:c});[...new Set([...Object.keys((A.by2||{})[c]||{}),...Object.keys((B.by2||{})[c]||{})])].sort().forEach(n=>LNc.push({n,s:true,p:c}))});
+    const per=1+LNc.length,t1=7,t2=t1+per+4,m0=t2+1;
     const title=(r,t)=>{for(let c=1;c<=5;c++)ws.getCell(r,c).fill=fill(NAVY);ws.getCell(r,1).value=t;ws.getCell(r,1).font=fnt({bold:true,size:11,color:{argb:GOLD}})};
     const header=(r,f)=>[f,AL,BL,'Difference (A − B)','%'].forEach((t,c)=>{const x=ws.getCell(r,c+1);x.value=t;x.font=fnt({bold:true,color:{argb:GOLD}});x.fill=fill(NAVY);x.border=box;x.alignment={horizontal:c?'right':'left',vertical:'middle',wrapText:true}});
     const isN=v=>typeof v==='number';
-    const put=(r,label,a,b,kind)=>{const bg=kind==='tot'?TOT:kind==='sub'?YEL:WHITE;
+    const put=(r,label,a,b,kind)=>{const bg=kind==='tot'?TOT:kind==='sub'?YEL:kind==='sub2'?'FFFFE99A':WHITE;
       const setv=(c,s)=>{const x=ws.getCell(r,c);x.value=(s&&typeof s==='object')?{formula:s.f,result:s.v}:s};
       setv(1,label);setv(2,a);setv(3,b);const av=a&&typeof a==='object'?a.v:a,bv=b&&typeof b==='object'?b.v:b,ok=isN(av)&&isN(bv);
       ws.getCell(r,4).value={formula:`IF(AND(ISNUMBER(B${r}),ISNUMBER(C${r})),B${r}-C${r},"—")`,result:ok?av-bv:'—'};
       ws.getCell(r,5).value={formula:`IF(AND(ISNUMBER(B${r}),ISNUMBER(C${r})),IF(C${r}=0,"—",(B${r}-C${r})/C${r}),"—")`,result:ok?(bv?(av-bv)/bv:'—'):'—'};
       for(let c=1;c<=5;c++){const x=ws.getCell(r,c);x.fill=fill(bg);x.border=box;x.font=fnt({bold:kind==='tot',color:{argb:'FF000000'}});if(c>1)x.alignment={horizontal:'right'};if(c>=2&&c<=4)x.numFmt=NUM}
-      ws.getCell(r,5).numFmt=PCT;if(kind==='sub'){ws.getCell(r,1).alignment={indent:2};ws.getRow(r).outlineLevel=1}};
+      ws.getCell(r,5).numFmt=PCT;if(kind==='sub'){ws.getCell(r,1).alignment={indent:2};ws.getRow(r).outlineLevel=1}if(kind==='sub2'){ws.getCell(r,1).alignment={indent:4};ws.getRow(r).outlineLevel=2}};
     // table 2 first (month by month)
     title(t2-1,'TABLE 2 · MONTH BY MONTH');header(t2,'Month');
     const mrows=[];let sA=0,sB=0,anyA=false,anyB=false;
@@ -218,7 +226,7 @@ async function dlCompare(expanded){
     // table 1
     title(t1-2,'TABLE 1 · TOTAL MANDAYS');header(t1-1,'Particulars');
     put(t1,'Total mandays',anyA?{f:`SUM(B${m0}:B${last})`,v:sA}:'—',anyB?{f:`SUM(C${m0}:C${last})`,v:sB}:'—','tot');
-    CON.forEach((c,k)=>put(t1+1+k,c,A.split?(A.by[c]||0):'—',B.split?(B.by[c]||0):'—','sub'));
+    LNc.forEach((L,k)=>{const va=A.split?(L.s?(((A.by2||{})[L.p]||{})[L.n]||0):(A.by[L.p]||0)):'—',vb=B.split?(L.s?(((B.by2||{})[L.p]||{})[L.n]||0):(B.by[L.p]||0)):'—';put(t1+1+k,L.n,va,vb,L.s?'sub2':'sub')});
     wb.calcProperties={fullCalcOnLoad:true};
     const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
     const san=s=>s.replace(/[^A-Za-z0-9-]+/g,'_');a.download=`MANDAYS_Compare_${san(A0.t)}_vs_${san(B0.t)}_${mode.toUpperCase()}_${expanded?'Expanded':'Collapsed'}.xlsx`;
@@ -237,13 +245,13 @@ async function vPeriods(kind){
     else aCell=fmt(A.tot)+(A.plan?' <span class="pill">Planned</span>':'');
     const planRow=A.plan&&kind==='month'?` <button class="b l" data-clr="${mkey(selFY,d.idx[0])}">Clear</button>`:'';
     body+=`<tr class="${canX?'par':''}" data-k="${kind+d.k}"><td><span class="tg">${canX?(open?'▾':'▸'):''}</span>${esc(d.label)}${PT}</td><td>${aCell}${A.lo?LOP:''}${planRow}</td><td>${fmt(B.tot)}${B.lo?LOP:''}${PT?'':''}</td>${diffCells(A.tot,B.tot)}</tr>`;
-    if(open&&canX){[...new Set([...Object.keys(A.by),...Object.keys(B.by)])].sort().forEach(c=>{const a=A.by[c]||0,b=B.split?(B.by[c]||0):null;body+=`<tr class="sub"><td>${esc(c)}</td><td>${fmt(a)}</td><td>${fmt(b)}</td>${diffCells(a,b)}</tr>`})}});
+    if(open&&canX){[...new Set([...Object.keys(A.by),...Object.keys(B.by)])].sort().forEach(c=>{const a=A.by[c]||0,b=B.split?(B.by[c]||0):null;body+=conRows(kind+d.k,c,a,b,A,B)})}});
   paint(`<div class="bar"><label class="f">Financial year<select id="fy">${fyOpts.map(y=>`<option value="${y}" ${y===selFY?'selected':''}>${fyl(y)}</option>`).join('')}</select></label><span class="mut">Compared with ${fyl(selFY-1)}</span></div>
   <div class="card"><table><tr><th>${kind==='month'?'Month':'Quarter'}</th><th>FY ${fyl(selFY)}</th><th>FY ${fyl(selFY-1)}</th><th>Difference</th><th>%</th></tr>${body}
   <tr class="tot"><td>Total (months with data in both years)</td><td>${fmt(anyA?tA:null)}</td><td>${fmt(anyB?tB:null)}</td>${diffCells(anyA?tA:null,anyB?tB:null)}</tr></table>
   <div class="note">Click a row to see contractors. Up to Oct 2026 from the Excel history; from Nov 2026 live from Payroll. Months with no data are Planned: enter expected mandays, replaced by real Payroll data once it arrives. FY 2025-26 has monthly totals only (no contractor split).${mode==='ultra'?LONOTE:''}</div></div>`);
   $('#fy').onchange=e=>{selFY=+e.target.value;vPeriods(kind)};
-  document.querySelectorAll('tr.par').forEach(r=>r.onclick=()=>{const k=r.dataset.k;openSet.has(k)?openSet.delete(k):openSet.add(k);vPeriods(kind)});
+  document.querySelectorAll('tr.par').forEach(r=>r.onclick=()=>{const k=r.dataset.k;openSet.has(k)?openSet.delete(k):openSet.add(k);vPeriods(kind)});wire2(()=>vPeriods(kind));
   document.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{const m=b.dataset.save,v=parseFloat(document.querySelector('input[data-m="'+m+'"]').value);if(!(v>=0))return toast('Enter a number');
     try{await API('mandays_plan_save',{p_month:m,p_mandays:v});for(const k in D)delete D[k];toast('Planned figure saved');vPeriods(kind)}catch(e){toast(emsg(e))}});
   document.querySelectorAll('[data-clr]').forEach(b=>b.onclick=async()=>{try{await API('mandays_plan_clear',{p_month:b.dataset.clr});for(const k in D)delete D[k];toast('Planned figure cleared');vPeriods(kind)}catch(e){toast(emsg(e))}})}
@@ -266,7 +274,7 @@ async function vCmp(){
   const cons=[...new Set([...Object.keys(A.by),...Object.keys(B.by)])].sort(),open=openSet.has('cmp');
   const cnt=(fy,ix)=>ix.filter(i=>(D[fy+'|'+mode]||[]).some(r=>String(r.month).slice(0,10)===mkey(fy,i))).length,nA=cnt(A0.fy,A0.idx),nB=cnt(B0.fy,B0.idx),partial=(nA<A0.idx.length||nB<B0.idx.length);
   let body=`<tr class="par" data-k="cmp"><td><span class="tg">${cons.length?(open?'▾':'▸'):''}</span>Total mandays</td><td>${fmt(A.tot)}${A.plan?' <span class="pill">Planned</span>':''}${A.lo?LOP:''}</td><td>${fmt(B.tot)}${B.plan?' <span class="pill">Planned</span>':''}${B.lo?LOP:''}</td>${diffCells(A.tot,B.tot)}</tr>`;
-  if(open)cons.forEach(c=>{const a=A.split?(A.by[c]||0):null,b=B.split?(B.by[c]||0):null;body+=`<tr class="sub"><td>${esc(c)}</td><td>${fmt(a)}</td><td>${fmt(b)}</td>${diffCells(a,b)}</tr>`});
+  if(open)cons.forEach(c=>{const a=A.split?(A.by[c]||0):null,b=B.split?(B.by[c]||0):null;body+=conRows('cmp',c,a,b,A,B)});
   const n=Math.max(A0.idx.length,B0.idx.length),mx=Math.max(1,...A.per,...B.per),W=Math.max(520,n*(n>6?70:110)),H=240,pad=30,bw=Math.min(34,(W-60)/n/2.6);let bars='';
   for(let i=0;i<n;i++){const x=50+i*((W-60)/n),ha=(A.per[i]||0)/mx*(H-pad-20),hb=(B.per[i]||0)/mx*(H-pad-20),la=A0.idx[i]!=null?MN[A0.idx[i]]:'';
     bars+=`<rect x="${x}" y="${H-pad-ha}" width="${bw}" height="${ha}" fill="var(--A)" rx="3"/><text x="${x+bw/2}" y="${H-pad-ha-4}" fill="#e8eefc" font-size="10" text-anchor="middle">${A.per[i]?fmt(A.per[i]):''}</text><rect x="${x+bw+4}" y="${H-pad-hb}" width="${bw}" height="${hb}" fill="var(--B)" rx="3"/><text x="${x+bw*1.5+4}" y="${H-pad-hb-4}" fill="#e8eefc" font-size="10" text-anchor="middle">${B.per[i]?fmt(B.per[i]):''}</text><text x="${x+bw+2}" y="${H-10}" fill="#aebce0" font-size="11" text-anchor="middle">${la}</text>`}
@@ -276,7 +284,7 @@ async function vCmp(){
   <div class="note">${partial?`<b style="color:var(--gold2)">Not like-for-like:</b> A has data for ${nA} of ${A0.idx.length} months and B for ${nB} of ${B0.idx.length}, so the difference is not a full comparison.<br>`:''}Click Total to open contractors.${(A.lo||B.lo)?LONOTE:''}${(A.any&&!A.split)||(B.any&&!B.split)?' One side has a total only (no contractor split), so contractor differences are not shown for it.':''}</div></div>
   <div class="card" style="margin-top:14px"><div class="leg"><span><i style="background:var(--A)"></i>A · ${esc(A0.t)}</span><span><i style="background:var(--B)"></i>B · ${esc(B0.t)}</span><span class="mut">Month by month, aligned by position</span></div><svg viewBox="0 0 ${W} ${H}" width="100%" style="max-height:300px">${bars}<line x1="44" y1="${H-pad}" x2="${W-6}" y2="${H-pad}" stroke="#2a4a86"/></svg></div>`);
   $('#ck').onchange=e=>{cmp.kind=e.target.value;cmp.a=cmp.b=null;vCmp()};$('#ca').onchange=e=>{cmp.a=e.target.value;const pr=cmp.a.split('|'),ty=(+pr[0]===curFY)?curFY-1:curFY,nb=ty+'|'+pr[1];if(opts.find(o=>o.v===nb))cmp.b=nb;vCmp()};$('#cb').onchange=e=>{cmp.b=e.target.value;vCmp()};
-  document.querySelectorAll('tr.par').forEach(r=>r.onclick=()=>{openSet.has('cmp')?openSet.delete('cmp'):openSet.add('cmp');vCmp()})}
+  document.querySelectorAll('tr.par').forEach(r=>r.onclick=()=>{openSet.has('cmp')?openSet.delete('cmp'):openSet.add('cmp');vCmp()});wire2(vCmp)}
 
 function stopPage(msg,link){$('#root').innerHTML=`<div class="big"><h2 style="color:var(--gold)">${esc(msg)}</h2><p><a class="back" href="${link||WS}">${link?'Go to the Gateway of CP':'Back to Workspace'}</a></p></div>`}
 (async function(){
