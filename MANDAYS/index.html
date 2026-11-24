@@ -121,7 +121,7 @@ async function dlExcel(expanded){
     const CON=[...new Set(M.flatMap(m=>[...Object.keys(m.a.by),...Object.keys(m.b.by)]))].sort();
     const nC=expanded?CON.length:0,per=1+nC,has=i=>M[i].a.any,hasB=i=>M[i].b.any;
     const both=[...Array(12).keys()].filter(i=>has(i)&&hasB(i));
-    const wb=new ExcelJS.Workbook();wb.creator='Classic Pack Workspace';const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false}},pageSetup:{orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0}});
+    const wb=new ExcelJS.Workbook();wb.creator='Classic Pack Workspace';const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false}},pageSetup:{orientation:'portrait',scale:85}});
     [44,16,16,18,12].forEach((w,i)=>ws.getColumn(i+1).width=w);
     const A='FY '+fyl(selFY),B='FY '+fyl(selFY-1),fnt=(o)=>Object.assign({name:'Arial',size:10},o||{}),fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),thin={style:'thin',color:{argb:'FFB8C4DC'}},box={left:thin,right:thin,top:thin,bottom:thin};
     const d=new Date(),ds=String(d.getDate()).padStart(2,'0')+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+'-'+d.getFullYear();
