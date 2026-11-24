@@ -114,6 +114,7 @@ let _xj=null;
 function loadXJ(){if(window.ExcelJS)return Promise.resolve();if(_xj)return _xj;
   return _xj=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.onload=ok;s.onerror=()=>{_xj=null;no(new Error('Could not load the Excel library. Check the internet connection and try again.'))};document.head.appendChild(s)})}
 async function dlExcel(expanded){
+  if(tab==='cmp')return dlCompare(expanded);
   try{toast('Preparing Excel…');
     await Promise.all([loadFY(selFY),loadFY(selFY-1),loadXJ()]);
     const NAVY='FF07173A',GOLD='FFD9B341',YEL='FFFFF5C9',TOT='FFDCE6F7',WHITE='FFFFFFFF',NUM='#,##0.0;-#,##0.0;"-"',PCT='+0.0%;-0.0%;0.0%';
@@ -121,7 +122,7 @@ async function dlExcel(expanded){
     const CON=[...new Set(M.flatMap(m=>[...Object.keys(m.a.by),...Object.keys(m.b.by)]))].sort();
     const nC=expanded?CON.length:0,per=1+nC,has=i=>M[i].a.any,hasB=i=>M[i].b.any;
     const both=[...Array(12).keys()].filter(i=>has(i)&&hasB(i));
-    const wb=new ExcelJS.Workbook();wb.creator='Classic Pack Workspace';const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false}},pageSetup:{orientation:'portrait',scale:85}});
+    const wb=new ExcelJS.Workbook();wb.creator='Classic Pack Workspace';const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false}},pageSetup:{orientation:'portrait',scale:72}});
     [44,16,16,18,12].forEach((w,i)=>ws.getColumn(i+1).width=w);
     const A='FY '+fyl(selFY),B='FY '+fyl(selFY-1),fnt=(o)=>Object.assign({name:'Arial',size:10},o||{}),fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),thin={style:'thin',color:{argb:'FFB8C4DC'}},box={left:thin,right:thin,top:thin,bottom:thin};
     const d=new Date(),ds=String(d.getDate()).padStart(2,'0')+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+'-'+d.getFullYear();
@@ -171,6 +172,57 @@ async function dlExcel(expanded){
     wb.calcProperties={fullCalcOnLoad:true};
     const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
     a.download=`MANDAYS_FY${fyl(selFY)}_${mode.toUpperCase()}_${expanded?'Expanded':'Collapsed'}.xlsx`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('Excel downloaded')
+  }catch(e){toast(emsg(e))}}
+
+async function dlCompare(expanded){
+  try{toast('Preparing Excel…');
+    const opts=cmpOptions(cmp.kind),A0=opts.find(o=>o.v===cmp.a),B0=opts.find(o=>o.v===cmp.b);
+    if(!A0||!B0){toast('Pick A and B first');return}
+    await Promise.all([loadFY(A0.fy),loadFY(B0.fy),loadXJ()]);
+    const NAVY='FF07173A',GOLD='FFD9B341',YEL='FFFFF5C9',TOT='FFDCE6F7',WHITE='FFFFFFFF',NUM='#,##0.0;-#,##0.0;"-"',PCT='+0.0%;-0.0%;0.0%';
+    const A=agg(A0.fy,A0.idx),B=agg(B0.fy,B0.idx),n=Math.max(A0.idx.length,B0.idx.length);
+    const mo=(fy,ix,i)=>ix[i]==null?null:agg(fy,[ix[i]]);
+    const CON=expanded?[...new Set([...Object.keys(A.by),...Object.keys(B.by)])].sort():[];
+    const cnt=(fy,ix)=>ix.filter(i=>agg(fy,[i]).any).length,nA=cnt(A0.fy,A0.idx),nB=cnt(B0.fy,B0.idx),partial=nA<A0.idx.length||nB<B0.idx.length;
+    const wb=new ExcelJS.Workbook();wb.creator='Classic Pack Workspace';
+    const ws=wb.addWorksheet('Sheet 1',{views:[{showGridLines:false}],properties:{outlineProperties:{summaryBelow:false}},pageSetup:{orientation:'portrait',scale:72}});
+    [44,18,18,18,12].forEach((w,i)=>ws.getColumn(i+1).width=w);
+    const fnt=o=>Object.assign({name:'Arial',size:10},o||{}),fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),thin={style:'thin',color:{argb:'FFB8C4DC'}},box={left:thin,right:thin,top:thin,bottom:thin};
+    const d=new Date(),ds=String(d.getDate()).padStart(2,'0')+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+'-'+d.getFullYear();
+    const AL='A · '+A0.t,BL='B · '+B0.t;
+    ws.getCell(1,1).value='CLASSIC PACK · MANDAYS COMPARISON (CONTRACT LABOUR)';ws.getCell(1,1).font=fnt({size:15,bold:true,color:{argb:NAVY}});
+    ws.getCell(2,1).value=`${A0.t} compared with ${B0.t} · ${mode==='ultra'?'ULTRA':'LITE'} mode · ${expanded?'Expanded (contractor wise)':'Collapsed (totals only)'} · Downloaded ${ds}`;ws.getCell(2,1).font=fnt({color:{argb:'FF444444'}});
+    ws.getCell(3,1).value=(partial?`Not like-for-like: A has data for ${nA} of ${A0.idx.length} months and B for ${nB} of ${B0.idx.length}. `:'')+'Up to Oct 2026 from the Excel history; from Nov 2026 live from Payroll. FY 2025-26 has monthly totals only (no contractor split).'+(mode==='ultra'?' ULTRA: Excel-based months are on the LITE basis.':'');
+    ws.getCell(3,1).font=fnt({size:9,italic:true,color:{argb:partial?'FF8A5200':'FF666666'}});
+    const per=1+CON.length,t1=7,t2=t1+per+4,m0=t2+1;
+    const title=(r,t)=>{for(let c=1;c<=5;c++)ws.getCell(r,c).fill=fill(NAVY);ws.getCell(r,1).value=t;ws.getCell(r,1).font=fnt({bold:true,size:11,color:{argb:GOLD}})};
+    const header=(r,f)=>[f,AL,BL,'Difference (A − B)','%'].forEach((t,c)=>{const x=ws.getCell(r,c+1);x.value=t;x.font=fnt({bold:true,color:{argb:GOLD}});x.fill=fill(NAVY);x.border=box;x.alignment={horizontal:c?'right':'left',vertical:'middle',wrapText:true}});
+    const isN=v=>typeof v==='number';
+    const put=(r,label,a,b,kind)=>{const bg=kind==='tot'?TOT:kind==='sub'?YEL:WHITE;
+      const setv=(c,s)=>{const x=ws.getCell(r,c);x.value=(s&&typeof s==='object')?{formula:s.f,result:s.v}:s};
+      setv(1,label);setv(2,a);setv(3,b);const av=a&&typeof a==='object'?a.v:a,bv=b&&typeof b==='object'?b.v:b,ok=isN(av)&&isN(bv);
+      ws.getCell(r,4).value={formula:`IF(AND(ISNUMBER(B${r}),ISNUMBER(C${r})),B${r}-C${r},"—")`,result:ok?av-bv:'—'};
+      ws.getCell(r,5).value={formula:`IF(AND(ISNUMBER(B${r}),ISNUMBER(C${r})),IF(C${r}=0,"—",(B${r}-C${r})/C${r}),"—")`,result:ok?(bv?(av-bv)/bv:'—'):'—'};
+      for(let c=1;c<=5;c++){const x=ws.getCell(r,c);x.fill=fill(bg);x.border=box;x.font=fnt({bold:kind==='tot',color:{argb:'FF000000'}});if(c>1)x.alignment={horizontal:'right'};if(c>=2&&c<=4)x.numFmt=NUM}
+      ws.getCell(r,5).numFmt=PCT;if(kind==='sub'){ws.getCell(r,1).alignment={indent:2};ws.getRow(r).outlineLevel=1}};
+    // table 2 first (month by month)
+    title(t2-1,'TABLE 2 · MONTH BY MONTH');header(t2,'Month');
+    const mrows=[];let sA=0,sB=0,anyA=false,anyB=false;
+    for(let i=0;i<n;i++){const r=m0+i,a=mo(A0.fy,A0.idx,i),b=mo(B0.fy,B0.idx,i);
+      const la=A0.idx[i]!=null?MN[A0.idx[i]]:'—',lb=B0.idx[i]!=null?MN[B0.idx[i]]:'—';
+      const av=a&&a.any?a.tot:(a?'Planned':'—'),bv=b&&b.any?b.tot:(b?'Planned':'—');
+      if(isN(av)){sA+=av;anyA=true}if(isN(bv)){sB+=bv;anyB=true}
+      put(r,la===lb?la:la+' vs '+lb,av,bv,'row');
+      [2,3].forEach(c=>{const v=ws.getCell(r,c).value;if(typeof v==='string'){ws.getCell(r,c).font=fnt({italic:true,color:{argb:'FF8A5200'}})}});mrows.push(r)}
+    const last=m0+n-1;
+    // table 1
+    title(t1-2,'TABLE 1 · TOTAL MANDAYS');header(t1-1,'Particulars');
+    put(t1,'Total mandays',anyA?{f:`SUM(B${m0}:B${last})`,v:sA}:'—',anyB?{f:`SUM(C${m0}:C${last})`,v:sB}:'—','tot');
+    CON.forEach((c,k)=>put(t1+1+k,c,A.split?(A.by[c]||0):'—',B.split?(B.by[c]||0):'—','sub'));
+    wb.calcProperties={fullCalcOnLoad:true};
+    const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const san=s=>s.replace(/[^A-Za-z0-9-]+/g,'_');a.download=`MANDAYS_Compare_${san(A0.t)}_vs_${san(B0.t)}_${mode.toUpperCase()}_${expanded?'Expanded':'Collapsed'}.xlsx`;
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('Excel downloaded')
   }catch(e){toast(emsg(e))}}
 
 function periodDefs(kind){return kind==='month'?MN.map((n,i)=>({k:'m'+i,label:n,idx:[i]})):[0,1,2,3].map(q=>({k:'q'+q,label:'Q'+(q+1)+' ('+MN[q*3]+'–'+MN[q*3+2]+')',idx:[q*3,q*3+1,q*3+2]}))}
