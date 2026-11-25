@@ -697,7 +697,10 @@ function openPortal(p){
   fr.onload=()=>setTimeout(reveal,Math.max(0,900-(Date.now()-t0)));
   setTimeout(reveal,15000);
   show('loading');fr.src=u})}
-$('#btnHomeFromPortal').onclick=()=>runLoading('Loading Home','Loading',900,()=>{$('#portal-frame').removeAttribute('src');show('home')});
+/* only the Administrator uses the WORKSPACE home page; everyone else goes back to the Gateway (their section stays open there) */
+const GW_HOME='https://kathiravan221990-create.github.io/CP-NEXUS/GATEWAY/';
+function gwOnlyHome(){try{return sessionStorage.getItem('ws_via_gw')==='1'&&!isAdmin()}catch(e){return false}}
+$('#btnHomeFromPortal').onclick=()=>{if(gwOnlyHome()){location.replace(GW_HOME);return}runLoading('Loading Home','Loading',900,()=>{$('#portal-frame').removeAttribute('src');show('home')})};
 // ---------- entry animation ----------
 const entryEl=$('#entry');let entryTimers=[];
 function runEntry(then){
@@ -893,5 +896,6 @@ $('#usersClose').onclick=()=>$('#usersModal').classList.remove('show');
    if(o&&o.a&&o.r)await sb.auth.setSession({access_token:o.a,refresh_token:o.r})}}catch(e){}
  const {data:s}=await sb.auth.getSession();
  if(s.session){await afterLogin(false);
+  if(!want&&gwOnlyHome()){location.replace(GW_HOME);return}
   if(want){const p=PORTALS.find(x=>x.id===want);if(p&&visible().some(x=>x.id===p.id))setTimeout(()=>openPortal(p),80)}}})();
 </script></body></html>
