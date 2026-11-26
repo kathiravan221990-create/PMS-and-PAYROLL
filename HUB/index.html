@@ -698,9 +698,11 @@ function openPortal(p){
  if(!url)return toast('Link not set yet - the Administrator can add it in Portal Links');
  runLoading('Welcome To '+linkOf(p).title,'Loading',700,()=>{
   let u=url;try{const x=new URL(url,location.href);x.searchParams.set('v',String(Math.floor(Date.now()/300000)));u=x.toString()}catch(e){}
-  const fr=$('#portal-frame');let done=false;const t0=Date.now();
-  const reveal=()=>{if(done)return;done=true;fr.onload=null;show('portal')};
-  fr.onload=()=>setTimeout(reveal,Math.max(0,900-(Date.now()-t0)));
+  const fr=$('#portal-frame');let done=false;const t0=Date.now();let poll=null;
+  const reveal=()=>{if(done)return;done=true;if(poll){clearInterval(poll);poll=null}fr.onload=null;show('portal')};
+  /* keep the loading screen until the app inside is really ready (its own loader is gone and it shows content, not a login page) */
+  const appState=()=>{try{const d=fr.contentDocument;if(!d||!d.body)return false;if(d.querySelector('.login-wrap'))return 'login';const L=d.getElementById('loader');const on=L&&fr.contentWindow.getComputedStyle(L).display!=='none';const A=d.getElementById('app');return(!on&&(!A||A.children.length>0))?'ok':false}catch(e){return 'ok'}};
+  fr.onload=()=>{if(poll)clearInterval(poll);poll=setInterval(()=>{const st=appState();if(!st||Date.now()-t0<900)return;if(st==='login'&&gwOnlyHome()){clearInterval(poll);location.replace(GW_HOME);return}reveal()},150)};
   setTimeout(reveal,15000);
   show('loading');fr.src=u})}
 /* only the Administrator uses the WORKSPACE home page; everyone else goes back to the Gateway (their section stays open there) */
