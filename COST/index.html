@@ -83,6 +83,7 @@ td input{width:100%;text-align:center}
 .up2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.up2 .drop{margin-bottom:0}.up2 .drop{display:flex;flex-direction:column;align-items:center}.st:empty{display:none}.st{margin-top:8px;padding:5px 10px;border-radius:8px;border:1px solid #d4ad55;background:rgba(212,173,85,.12);color:#f1d58a;font-size:12.5px}.st.ok{border-color:#5fbf8f;color:#9be0bd;background:rgba(95,191,143,.1)}
 .drop.dz{border-color:#d4ad55!important;background:rgba(212,173,85,.14)!important}
 .pvb{background:#3a2e0b;border:1px solid #d4ad55;color:#f1d58a;border-radius:8px;padding:6px 12px;margin:6px 0 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px}.pvb .btn{padding:2px 10px;font-size:12px}tr.pvr td{background:rgba(212,173,85,.12)}
+.bdg.bm{border-color:#5aa0d6;color:#9bd0f5}
 .bdg{display:inline-block;border-radius:8px;padding:0 6px;font-size:11px;border:0.5px solid #8a6f2e;color:#f0cf6a}
 #modal{position:fixed;inset:0;background:rgba(2,8,24,.7);display:none;align-items:center;justify-content:center;z-index:60}
 #modal .m{background:#0f2147;border:1px solid #8a6f2e;border-radius:12px;padding:12px;width:min(92vw,820px);max-height:86vh;overflow:auto}
@@ -728,13 +729,38 @@ VIEWS.power=async function(){
   const old=(await R('lines_list',{p_from:a,p_to:b,p_category:'fuel',p_source:'excel'})).reduce((t,l)=>t+Number(l.amount),0);
   const add=PV.rows.filter(x=>x.category==='fuel'&&x.cost_month===r.month).reduce((t,l)=>t+Number(l.amount),0);
   r.fuel_diesel=Number(r.fuel_diesel)-old+add;r.pv_f=1}));
+ if(PP)rows.forEach(r=>{if(r.pv_p)r.power_src='excel'});
+ rows.forEach(r=>{if(r.pv_f)r.fuel_src='excel'});
+ const SL={excel:'Excel',manual:'Manual',pms:'PMS live',payroll:'Payroll live',daily:'Daily',workbook:'Workbook',missing:''};
+ const bd=x=>x&&SL[x]?` <span class="bdg ${x==='manual'?'bm':''}">${SL[x]}</span>`:'';
+ const cell=(r,f,val,src,lockSrc,dec,ph)=>{const can=ed&&!r.locked&&src!==lockSrc;
+  return can?`<input type="number" min="0" step="any" data-f="${f}" data-m="${r.month}" value="${val==null?'':val}" placeholder="${ph}">${bd(src)}`:`${val==null?'-':n(val,dec)}${bd(src)}`};
  $('#main').innerHTML=`<div class="tabs">${mpick()}<span class="note">Financial year of the selected month</span></div>
  <h3>Power and fuel</h3>
- <table><tr><th>Month</th><th>Power (EB)</th><th>Fuel: diesel (register)</th><th>Total</th><th>Tins</th><th>Per tin</th></tr>
- ${rows.map(r=>{const tot=r.power_eb==null?null:Number(r.power_eb)+Number(r.fuel_diesel);return `<tr${r.pv_p||r.pv_f?' class="pvr"':''}><td>${ml(r.month)}${r.pv_p||r.pv_f?' <span class="bdg">Preview</span>':''}</td><td>${r.pv_p?n(r.power_eb,2):ed&&!r.locked?`<input type="number" min="0" step="any" data-p="${r.month}" value="${r.power_eb==null?'':r.power_eb}" placeholder="Enter EB amount">`:n(r.power_eb)}</td><td class="rt">${n(r.fuel_diesel,2)}</td><td class="rt">${n(tot,2)}</td><td>${n(r.tins)}</td><td>${tot!=null&&r.tins>0?pt(tot/r.tins):(r.workbook_total&&r.tins>0?pt(r.workbook_total/r.tins):'-')}</td></tr>`}).join('')}</table>
- <div class="note">Power (EB) is typed until the Excel 3 mapping is added. Until it is typed, the workbook figure is used where one exists.</div>`;
+ <table id="pft"><tr><th>Month</th><th>Power (EB)</th><th>Fuel: diesel</th><th>Total</th><th>Mandays</th><th>Tins</th><th>Per tin</th></tr>
+ ${rows.map(r=>{const tot=r.power_eb==null?null:Number(r.power_eb)+Number(r.fuel_diesel||0);
+  return `<tr data-m="${r.month}"${r.pv_p||r.pv_f?' class="pvr"':''}><td>${ml(r.month)}${r.pv_p||r.pv_f?' <span class="bdg">Preview</span>':''}</td>
+  <td>${r.pv_p?n(r.power_eb,2)+bd('excel'):cell(r,'power',r.power_eb,r.power_src,'excel',0,'EB amount')}</td>
+  <td>${r.pv_f?n(r.fuel_diesel,2)+bd('excel'):cell(r,'diesel',r.fuel_diesel,r.fuel_src,'excel',2,'Diesel')}</td>
+  <td class="rt" data-t>${n(tot,2)}</td>
+  <td>${cell(r,'mandays',r.mandays,r.mandays_src,'payroll',1,'Mandays')}</td>
+  <td>${cell(r,'tins',r.tins,r.tins_src,'pms',0,'Tins')}</td>
+  <td data-pt>${tot!=null&&r.tins>0?pt(tot/r.tins):(r.workbook_total&&r.tins>0?pt(r.workbook_total/r.tins):'-')}</td></tr>`}).join('')}</table>
+ <div class="note"><b>Priority.</b> Power and fuel: the Excel upload is used first; type a figure only when there is no Excel. Tins: PMS live first, then the month figure typed here. Mandays: payroll live first, then the month figure typed here. Total is calculated automatically. Clear a typed box to remove it.</div>`;
  bindMonth(VIEWS.power);
- document.querySelectorAll('input[data-p]').forEach(i=>i.onchange=async()=>{if(i.value==='')return;try{await R('power_save',{p_month:i.dataset.p,p_amount:+i.value});toast('Power saved');VIEWS.power()}catch(e){toast(em(e),'err')}});
+ const fld=i=>{const tr=i.closest('tr'),g=f=>{const x=tr.querySelector(`input[data-f=${f}]`);return x?x.value:null};return {tr,g}};
+ document.querySelectorAll('#pft input[data-f]').forEach(i=>{
+  i.oninput=()=>{const r=rows.find(x=>x.month===i.dataset.m),{tr,g}=fld(i);
+   const pw=g('power')!=null?g('power'):(r.power_eb==null?'':r.power_eb),dz=g('diesel')!=null?g('diesel'):(r.fuel_diesel==null?'':r.fuel_diesel),tn=g('tins')!=null?g('tins'):(r.tins||0);
+   const t=pw===''?null:Number(pw)+Number(dz||0);tr.querySelector('[data-t]').textContent=n(t,2);
+   tr.querySelector('[data-pt]').innerHTML=t!=null&&+tn>0?pt(t/+tn):'-'};
+  i.onchange=async()=>{const m=i.dataset.m,f=i.dataset.f;
+   try{if(i.value===''){await R('manual_clear',{p_month:m,p_field:f})}
+    else if(f==='power')await R('power_save',{p_month:m,p_amount:+i.value});
+    else if(f==='diesel')await R('diesel_save',{p_month:m,p_amount:+i.value});
+    else if(f==='tins')await R('tins_save',{p_month:m,p_tins:Math.round(+i.value)});
+    else await R('mandays_save',{p_month:m,p_mandays:+i.value});
+    toast('Saved');VIEWS.power()}catch(e){toast(em(e),'err')}}});
 };
 
 /* ---------------- master tabs: EXPENSES MASTER and POWER & FUEL MASTER ---------------- */
