@@ -755,15 +755,16 @@ function mval(m,k){const r=MS.map[m];if(!r)return null;
 const mths=fy=>[...Array(12)].map((_,i)=>addM(fy,i));
 /* one figure cell: manual marker, partial marker, click to edit */
 function mtd(m,f,val,o){o=o||{};const r=MS.map[m];if(!r)return '<td>-</td>';
+ const bill=MS.basis==='billed'&&f==='power',em=bill?addM(m,-1):m,er=bill?(MS.map[em]||r):r;
  const key={power_fuel:'power_fuel',power:'power_fuel',diesel:'power_fuel'}[f]||f;
- const srcKey=f;const manual=r.src&&r.src[srcKey]==='manual';
+ const srcKey=f;const manual=er.src&&er.src[srcKey]==='manual';
  const th=r.through&&r.through[key];const partial=f!=='mandays'&&val!=null&&(!th||th<lastDay(m));
- const edit=!!(MS.data.can_edit&&o.edit&&!r.locked&&!(MS.basis==='billed'&&(f==='power')));
+ const edit=!!(MS.data.can_edit&&o.edit&&!r.locked&&!er.locked);
  if(f==='mandays'){}
  const cls=[o.cls||'',manual?'mn':'',partial?'pt':'',edit?'in':''].filter(Boolean).join(' ');
- if(edit)return `<td class="${cls}"${o.rs?` rowspan="${o.rs}"`:''} title="${manual?'Typed by hand':partial?'Data up to '+(th?dl(th):'-'):'Live figure; type to change'}"><input type="text" inputmode="decimal" autocomplete="off" data-m="${m}" data-f="${f}" value="${val==null?'':Math.round(val*100)/100}" placeholder="-"></td>`;
+ if(edit)return `<td class="${cls}"${o.rs?` rowspan="${o.rs}"`:''} title="${bill?'Electricity of the bill month '+ml(em)+'. ':''}${manual?'Typed by hand':partial?'Data up to '+(th?dl(th):'-'):'Live figure; type to change'}"><input type="text" inputmode="decimal" autocomplete="off" data-m="${em}" data-f="${f}" value="${val==null?'':Math.round(val*100)/100}" placeholder="-"></td>`;
  const tip=r.locked?'Month locked':manual?'Typed manually':partial?('Data up to '+(th?dl(th):'-')):'';
- return `<td class="${cls}"${tip?` title="${tip}"`:''}${edit?` data-m="${m}" data-f="${f}" data-v="${val==null?'':val}"`:''}${o.rs?` rowspan="${o.rs}"`:''}>${o.fmt?o.fmt(val):fx(val,o.d||0)}</td>`;
+ return `<td class="${cls}"${tip?` title="${tip}"`:''}${o.fx?` data-fx="${o.fx}"`:''}${edit?` data-m="${m}" data-f="${f}" data-v="${val==null?'':val}"`:''}${o.rs?` rowspan="${o.rs}"`:''}>${o.fmt?o.fmt(val):fx(val,o.d||0)}</td>`;
 }
 /* ---- block builders (shared by screen and Excel) ---- */
 function expModel(fy){ /* per month: categories + production */
@@ -805,7 +806,7 @@ function bindInputs(v){
   await masterLoad();document.querySelectorAll('#main input[data-f]').forEach(x=>{if(MS.dirty.has(x.dataset.m+'|'+x.dataset.f)){const r=MS.map[x.dataset.m];if(r)r[x.dataset.f]=x.value===''?null:+x.value}});masterRefresh(MS.v)})}
 
  document.querySelectorAll('#main input[data-f]').forEach(i=>{
-  i.oninput=()=>{const cl=i.value.replace(/[^0-9.]/g,'');if(cl!==i.value){const p=i.selectionStart-1;i.value=cl;try{i.setSelectionRange(p,p)}catch(e){}}const r=MS.map[i.dataset.m];if(r){MS.dirty.add(i.dataset.m+'|'+i.dataset.f);r[i.dataset.f]=i.value===''?null:+i.value;masterRefresh(v)}};
+  i.oninput=()=>{const cl=i.value.replace(/[^0-9.]/g,'');if(cl!==i.value){const p=i.selectionStart-1;i.value=cl;try{i.setSelectionRange(p,p)}catch(e){}}const r=MS.map[i.dataset.m],val=i.value===''?null:+i.value;MS.dirty.add(i.dataset.m+'|'+i.dataset.f);if(r)r[i.dataset.f]=val;if(i.dataset.f==='power'){const nx=MS.map[addM(i.dataset.m,1)];if(nx)nx.power_billed=val}if(r||i.dataset.f==='power')masterRefresh(v)};
   i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const all=[...document.querySelectorAll('#main input[data-f]')],k=all.indexOf(i);const nx=all[e.shiftKey?k-1:k+1];if(nx){nx.focus();nx.select()}}}});
 }
 /* redraw the tables while typing, keeping the cursor where it was */
@@ -844,8 +845,8 @@ function expTable(){
     const pe=P.cat[cat],ce=C.cat[cat];const ed=cat!=='power_fuel';
     const ptn=divN(pe,P.tins),ctn=divN(ce,C.tins);
     h+='<tr>'+(i===0&&ci===0?`<td class="qc" rowspan="15">Q${q+1}</td>`:'')+(ci===0?`<td class="mc" rowspan="5">${MFULL[k]}</td>`:'')+`<td class="sp">${c[1]}</td>`
-     +mtd(P.m,cat,pe,{edit:ed})+(ci===0?mtd(P.m,'tins',P.tins,{edit:true,rs:5}):'')+`<td data-fx="= EXPENSES ÷ PRODUCTION QTY">${fx(ptn,3)}</td>`
-     +mtd(C.m,cat,ce,{edit:ed})+(ci===0?mtd(C.m,'tins',C.tins,{edit:true,rs:5}):'')+`<td data-fx="= EXPENSES ÷ PRODUCTION QTY">${fx(ctn,3)}</td>`
+     +mtd(P.m,cat,pe,{edit:ed,fx:ed?null:'= POWER + FUEL (DIESEL) from the Power & fuel master'})+(ci===0?mtd(P.m,'tins',P.tins,{edit:true,rs:5}):'')+`<td data-fx="= EXPENSES ÷ PRODUCTION QTY">${fx(ptn,3)}</td>`
+     +mtd(C.m,cat,ce,{edit:ed,fx:ed?null:'= POWER + FUEL (DIESEL) from the Power & fuel master'})+(ci===0?mtd(C.m,'tins',C.tins,{edit:true,rs:5}):'')+`<td data-fx="= EXPENSES ÷ PRODUCTION QTY">${fx(ctn,3)}</td>`
      +`<td>${fx(subN(pe,ce))}</td>`+(ci===0?`<td rowspan="5">${fx(subN(P.tins,C.tins))}</td>`:'')+`<td>${fx(ptn==null||ctn==null?null:ptn-ctn,3)}</td></tr>`;
    });
   }
