@@ -129,7 +129,8 @@ td input{width:100%;text-align:center}
 .mt td.qc{background:#D9F2D0;font-weight:600}.mt td.mc{background:#DCEAF7}.mt td.sp{background:#D1D1D1;text-align:left}
 .mt td.sk{background:#C1E5F5}.mt td.g1{background:#D1D1D1}
 .mt tr.tt td{background:#0B76A0;color:#fff;font-weight:700}
-.mt td.ed{cursor:pointer}.mt td.ed:hover{outline:2px solid #b8913a}
+.mt td.in{padding:0;background:#fff}.mt td.in input{width:100%;min-width:78px;box-sizing:border-box;border:0;background:transparent;color:#000;font:inherit;font-size:12px;text-align:right;padding:3px 6px;outline:none}.mt td.in input:focus{background:#fffbe0;outline:2px solid #0B76A0}.mt td.in.mn{background:#fff3c4}.mt td.in.mn::after{content:''}
+.fxb{display:flex;gap:8px;align-items:center;margin:6px 0;padding:4px 10px;border:1px solid #8a6f2e;border-radius:6px;background:rgba(7,17,42,.6);color:#d4ad55;font-size:12.5px;min-height:22px}.fxb b{font-style:italic;color:#fff}
 .mt td.mn::after{content:' ✎';color:#9a6b00}.mt td.pt{font-style:italic;color:#6b4e00}
 
 .side .sbl{background:#fff;border-radius:8px;padding:8px 10px;margin:4px 8px 8px;box-shadow:0 2px 8px rgba(0,0,0,.3)}.side .sbl img{width:100%;height:auto;max-height:92px;object-fit:contain;display:block}
@@ -202,9 +203,10 @@ sb.auth.getSession().then(({data})=>{if(data.session)start()});
 setTimeout(()=>{try{startLive()}catch(e){}},0);
 
 /* ---------------- nav ---------------- */
-const NAV=[['dash','Dashboard'],['entry','Daily entry'],['upload','Upload'],['sep'],['match','Labour match'],['daily','Daily view'],['lines','Category wise expenses'],['power','Power and fuel'],['sep'],['expm','Expenses master'],['pfm','Power & fuel master'],['sep'],['reports','Reports'],['rules','Rules']];
+const NAV=[['dash','Dashboard'],['entry','Daily entry'],['upload','Upload'],['sep'],['match','Labour match'],['daily','Daily view'],['lines','Category wise expenses'],['sep'],['expm','Expenses master'],['pfm','Power & fuel master'],['sep'],['reports','Reports'],['rules','Rules']];
 const NAVICO={dash:'📊',entry:'✏️',upload:'📤',match:'👷',daily:'📅',lines:'🗂️',power:'⚡',expm:'📒',pfm:'🔌',reports:'📑',rules:'⚖️'};
-function buildNav(){$('#nav').innerHTML=NAV.map(x=>x[0]==='sep'?'<div class="sep"></div>':`<div data-v="${x[0]}" class="${x[0]===S.view?'on':''}"><span class="ni">${NAVICO[x[0]]||'•'}</span>${x[1]}</div>`).join('');
+const MHIDE=['upload','match','daily'];
+function buildNav(){$('#nav').innerHTML=NAV.filter(x=>!(S.cm==='manual'&&MHIDE.includes(x[0]))).map(x=>x[0]==='sep'?'<div class="sep"></div>':`<div data-v="${x[0]}" class="${x[0]===S.view?'on':''}"><span class="ni">${NAVICO[x[0]]||'•'}</span>${x[1]}</div>`).join('');
  document.querySelectorAll('#nav div[data-v]').forEach(d=>d.onclick=()=>go(d.dataset.v))}
 const VIEWS={};
 /* ---- unsaved Excel preview: shown in the tabs that list lines until it is saved or cancelled ---- */
@@ -215,11 +217,11 @@ function pvLines(){if(!S.pending||!S.pending.rows)return null;
 function cmBar(){const el=$('#mdbar');if(el)el.innerHTML=S.cm==='manual'?'<div class="mdb"><b>MANUAL MODE:</b> typed figures count over live data. Boxes show the live figure and can be changed. Switch to Auto to see only Excel, PMS and payroll figures.</div>':'';
  document.querySelectorAll('#cmt button').forEach(b=>b.classList.toggle('on',b.dataset.m===S.cm))}
 function cmBind(){document.querySelectorAll('#cmt button').forEach(b=>b.onclick=async()=>{if(b.dataset.m===S.cm)return;
- try{S.cm=await R('mode_set',{p_mode:b.dataset.m});MS.data=null;cmBar();toast(S.cm==='manual'?'Manual mode':'Auto mode');go(S.view)}catch(e){toast(em(e),'err')}});cmBar()}
+ try{S.cm=await R('mode_set',{p_mode:b.dataset.m});MS.data=null;cmBar();toast(S.cm==='manual'?'Manual mode':'Auto mode');buildNav();go(S.cm==='manual'&&MHIDE.includes(S.view)?'dash':S.view)}catch(e){toast(em(e),'err')}});cmBar()}
 function pvBar(){const el=$('#pvbar');if(!el)return;
  const f=[S.pending&&S.pending.file_name,S.pendingP&&S.pendingP.file_name].filter(Boolean);
  if(!f.length){el.innerHTML='';return}
- el.innerHTML=`<div class="pvb"><b>PREVIEW, NOT SAVED:</b> ${f.map(esc).join(' and ')}. Shown in Category wise expenses and Power and fuel. Dashboard, Daily view, Labour match and the masters change only after you save.
+ el.innerHTML=`<div class="pvb"><b>PREVIEW, NOT SAVED:</b> ${f.map(esc).join(' and ')}. Shown in Category wise expenses. Dashboard, Daily view, Labour match and the masters change only after you save.
  <button class="btn" id="pvg">Review and save</button><button class="btn" id="pvd">Discard</button></div>`;
  $('#pvg').onclick=()=>go('upload');
  $('#pvd').onclick=()=>{S.pending=null;S.pvData=null;S.pendingP=null;S.pvDataP=null;pvBar();go(S.view)}}
@@ -725,56 +727,12 @@ VIEWS.lines=async function(){
   if(isOpen){CW.open.delete(c);CW.open.add('x'+c)}else{CW.open.add(c);CW.open.delete('x'+c)}rerun()});
 };
 
-/* ---------------- power and fuel ---------------- */
-VIEWS.power=async function(){
- const rows=await R('power_list',{p_month:ms()});const ed=has('tins_edit');
- const PP=S.pendingP,PV=pvLines();
- if(PP)PP.months.forEach(pm=>{const r=rows.find(x=>x.month===pm.m);if(r&&!r.locked){r.power_eb=pm.a;r.pv_p=1}});
- if(PV)await Promise.all(rows.filter(r=>!r.locked&&r.month<=PV.to&&lastDay(r.month)>=PV.from).map(async r=>{
-  const a=r.month>PV.from?r.month:PV.from,b=lastDay(r.month)<PV.to?lastDay(r.month):PV.to;
-  const old=(await R('lines_list',{p_from:a,p_to:b,p_category:'fuel',p_source:'excel'})).reduce((t,l)=>t+Number(l.amount),0);
-  const add=PV.rows.filter(x=>x.category==='fuel'&&x.cost_month===r.month).reduce((t,l)=>t+Number(l.amount),0);
-  r.fuel_diesel=Number(r.fuel_diesel)-old+add;r.pv_f=1}));
- if(PP)rows.forEach(r=>{if(r.pv_p)r.power_src='excel'});
- rows.forEach(r=>{if(r.pv_f)r.fuel_src='excel'});
- const SL={excel:'Excel',manual:'Manual',pms:'PMS live',payroll:'Payroll live',daily:'Daily',workbook:'Workbook',missing:''};
- const bd=x=>x&&SL[x]?` <span class="bdg ${x==='manual'?'bm':''}">${SL[x]}</span>`:'';
- const cell=(r,f,val,src,dec,ph)=>{const can=ed&&S.cm==='manual'&&!r.locked;
-  return can?`<input type="number" min="0" step="any" data-f="${f}" data-m="${r.month}" value="${val==null?'':val}" placeholder="${ph}">${bd(src)}`:`${val==null?'-':n(val,dec)}${bd(src)}`};
- $('#main').innerHTML=`<div class="tabs">${mpick()}<span class="note">Financial year of the selected month</span></div>
- <h3>Power and fuel</h3>
- <table id="pft"><tr><th>Month</th><th>Power (EB)</th><th>Fuel: diesel</th><th>Total</th><th>Mandays</th><th>Tins</th><th>Per tin</th></tr>
- ${rows.map(r=>{const tot=r.power_eb==null?null:Number(r.power_eb)+Number(r.fuel_diesel||0);
-  return `<tr data-m="${r.month}"${r.pv_p||r.pv_f?' class="pvr"':''}><td>${ml(r.month)}${r.pv_p||r.pv_f?' <span class="bdg">Preview</span>':''}</td>
-  <td>${r.pv_p?n(r.power_eb,2)+bd('excel'):cell(r,'power',r.power_eb,r.power_src,0,'EB amount')}</td>
-  <td>${r.pv_f?n(r.fuel_diesel,2)+bd('excel'):cell(r,'diesel',r.fuel_diesel,r.fuel_src==='register'?'excel':r.fuel_src==='workbook'?'workbook':r.fuel_src,2,'Diesel')}</td>
-  <td class="rt" data-t>${n(tot,2)}</td>
-  <td>${cell(r,'mandays',r.mandays,r.mandays_src,1,'Mandays')}</td>
-  <td>${cell(r,'tins',r.tins,r.tins_src,0,'Tins')}</td>
-  <td data-pt>${tot!=null&&r.tins>0?pt(tot/r.tins):(r.workbook_total&&r.tins>0?pt(r.workbook_total/r.tins):'-')}</td></tr>`}).join('')}</table>
- <div class="note">${S.cm==='manual'?'<b>Manual mode.</b> Each box shows the live figure (Excel, PMS or payroll) and can be changed; where there is no live figure the box is empty and you can type it. A typed figure is saved for everyone and counts over the live one. Clear a box to go back to the live figure. Total and Per tin are calculated automatically.':'<b>Auto mode.</b> Only Excel, PMS and payroll figures are used. Switch to Manual (bottom of the side bar) to type figures.'}</div>`;
- bindMonth(VIEWS.power);
- const fld=i=>{const tr=i.closest('tr'),g=f=>{const x=tr.querySelector(`input[data-f=${f}]`);return x?x.value:null};return {tr,g}};
- document.querySelectorAll('#pft input[data-f]').forEach(i=>{
-  i.oninput=()=>{const r=rows.find(x=>x.month===i.dataset.m),{tr,g}=fld(i);
-   const pw=g('power')!=null?g('power'):(r.power_eb==null?'':r.power_eb),dz=g('diesel')!=null?g('diesel'):(r.fuel_diesel==null?'':r.fuel_diesel),tn=g('tins')!=null?g('tins'):(r.tins||0);
-   const t=pw===''?null:Number(pw)+Number(dz||0);tr.querySelector('[data-t]').textContent=n(t,2);
-   tr.querySelector('[data-pt]').innerHTML=t!=null&&+tn>0?pt(t/+tn):'-'};
-  i.onchange=async()=>{const m=i.dataset.m,f=i.dataset.f;
-   try{if(i.value===''){await R('manual_clear',{p_month:m,p_field:f})}
-    else if(f==='power')await R('power_save',{p_month:m,p_amount:+i.value});
-    else if(f==='diesel')await R('diesel_save',{p_month:m,p_amount:+i.value});
-    else if(f==='tins')await R('tins_save',{p_month:m,p_tins:Math.round(+i.value)});
-    else await R('mandays_save',{p_month:m,p_mandays:+i.value});
-    toast('Saved');VIEWS.power()}catch(e){toast(em(e),'err')}}});
-};
-
 /* ---------------- master tabs: EXPENSES MASTER and POWER & FUEL MASTER ---------------- */
 const MFULL=['April','May','June','July','August','September','October','November','December','January','February','March'];
 const MABBR=['AMJ','JAS','OND','JFM'];
 const MCAT=[['labour','labour cost'],['power_fuel','Power & fuel'],['consumable','Consumable'],['repair','Repair & Maintenance'],['safety','Safety']];
 const MPAL={blue:'0B76A0',peach:'F6C6AD',green:'D9F2D0',navy:'DCEAF7',grey1:'D1D1D1',grey0:'E8E8E8',sky:'C1E5F5'};
-const MS={fy:null,fys:[],basis:'same',data:null,map:{},cpt:false};
+const MS={dirty:new Set(),refreshing:false,fy:null,fys:[],basis:'same',data:null,map:{},cpt:false};
 try{MS.cpt=localStorage.getItem('cpMasterCpt')==='1'}catch(e){}
 try{MS.basis=localStorage.getItem('cpMasterBasis')==='billed'?'billed':'same'}catch(e){}
 const lastDay=m=>new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7),0)).toISOString().slice(0,10);
@@ -785,6 +743,7 @@ const fx=(x,d)=>x==null||isNaN(x)?'-':n(x,d);
 async function masterLoad(){
  if(!MS.fys.length){MS.fys=(await R('cost_years')).map(x=>x.slice(0,10));const cur=fyOf(new Date().toISOString().slice(0,10));MS.fy=MS.fys.includes(cur)?cur:MS.fys[MS.fys.length-1]}
  MS.data=await R('master_get',{p_fy:MS.fy});MS.map={};MS.data.rows.forEach(r=>MS.map[r.month]=r);
+ try{(await R('mandays_master',{p_fy:MS.fy})).forEach(x=>{const r=MS.map[x.month];if(r){r.mandays=x.mandays;r.src=r.src||{};r.src.mandays=x.src}})}catch(e){}
 }
 function mval(m,k){const r=MS.map[m];if(!r)return null;
  const pw=MS.basis==='billed'?r.power_billed:r.power;
@@ -798,9 +757,11 @@ const mths=fy=>[...Array(12)].map((_,i)=>addM(fy,i));
 function mtd(m,f,val,o){o=o||{};const r=MS.map[m];if(!r)return '<td>-</td>';
  const key={power_fuel:'power_fuel',power:'power_fuel',diesel:'power_fuel'}[f]||f;
  const srcKey=f;const manual=r.src&&r.src[srcKey]==='manual';
- const th=r.through&&r.through[key];const partial=val!=null&&(!th||th<lastDay(m));
+ const th=r.through&&r.through[key];const partial=f!=='mandays'&&val!=null&&(!th||th<lastDay(m));
  const edit=!!(MS.data.can_edit&&o.edit&&!r.locked&&!(MS.basis==='billed'&&(f==='power')));
- const cls=[o.cls||'',manual?'mn':'',partial?'pt':'',edit?'ed':''].filter(Boolean).join(' ');
+ if(f==='mandays'){}
+ const cls=[o.cls||'',manual?'mn':'',partial?'pt':'',edit?'in':''].filter(Boolean).join(' ');
+ if(edit)return `<td class="${cls}"${o.rs?` rowspan="${o.rs}"`:''} title="${manual?'Typed by hand':partial?'Data up to '+(th?dl(th):'-'):'Live figure; type to change'}"><input type="text" inputmode="decimal" autocomplete="off" data-m="${m}" data-f="${f}" value="${val==null?'':Math.round(val*100)/100}" placeholder="-"></td>`;
  const tip=r.locked?'Month locked':manual?'Typed manually':partial?('Data up to '+(th?dl(th):'-')):'';
  return `<td class="${cls}"${tip?` title="${tip}"`:''}${edit?` data-m="${m}" data-f="${f}" data-v="${val==null?'':val}"`:''}${o.rs?` rowspan="${o.rs}"`:''}>${o.fmt?o.fmt(val):fx(val,o.d||0)}</td>`;
 }
@@ -820,8 +781,9 @@ function masterBar(v){
  <button class="btn ${MS.basis==='same'?'p':''}" id="bs">Same month</button><button class="btn ${MS.basis==='billed'?'p':''}" id="bb">Billed month</button>
  <button class="btn p" id="mdl">Download Excel</button></div>
  <div class="note">${MS.basis==='same'?'Same month: electricity is shown in the month named on the bill (July bill is July).':'Billed month: electricity is shown one month later, as in the old workbook (July bill is August). Switch to Same month to type an electricity amount.'} Diesel is the same in both views.
- ${MS.data.can_edit?'<b>Manual mode.</b> Click a figure to type it by hand. Clear the box and press Enter to go back to the live figure.':(S.cm==='manual'?'Only a Manager or Administrator can type figures here.':'<b>Auto mode</b>: Excel, PMS and payroll figures only. Switch to Manual (side bar) to type figures.')}
- &nbsp; <b>✎</b> typed by hand &nbsp; <i>italic</i> = not complete to month end.</div>`;
+ ${MS.data.can_edit?'<b>Manual mode.</b> Type in any white cell, like Excel; Enter moves to the next cell and the figure saves when you leave it. Clear a cell to go back to the live figure.':(S.cm==='manual'?'Only a Manager or Administrator can type figures here.':'<b>Auto mode</b>: Excel, PMS and payroll figures only. Switch to Manual (side bar) to type figures.')}
+ &nbsp; <b>✎</b> typed by hand &nbsp; <i>italic</i> = not complete to month end.</div>
+ ${MS.data.can_edit?'<div class="fxb"><b>fx</b><span id="fxt">Type directly in a cell. Totals, cost per tin and variance are calculated automatically; typed figures are saved for everyone.</span></div>':''}`;
 }
 function masterBind(v){
  $('#mfy').onchange=async e=>{MS.fy=e.target.value;await masterLoad();masterRender(v)};
@@ -829,28 +791,51 @@ function masterBind(v){
  $('#bb').onclick=()=>{MS.basis='billed';try{localStorage.setItem('cpMasterBasis','billed')}catch(e){}masterRender(v)};
  $('#mdl').onclick=()=>masterExcel().catch(e=>toast(em(e),'err'));
  if(!MS.data.can_edit)return;
- document.querySelectorAll('td[data-f]').forEach(td=>td.onclick=()=>{
-  if(td.querySelector('input'))return;const cur=td.dataset.v||'';
-  td.innerHTML=`<input type="number" min="0" step="any" value="${cur}" style="width:90%;font-size:12px">`;
-  const i=td.firstChild;i.focus();i.select();let done=false;
-  const fin=async save=>{if(done)return;done=true;
-   if(save){try{
-     if(i.value===''){if(cur!=='')await R('master_clear',{p_month:td.dataset.m,p_field:td.dataset.f})}
-     else if(i.value!==cur)await R('master_save',{p_month:td.dataset.m,p_field:td.dataset.f,p_value:+i.value,p_note:'Typed on master tab'});
-     if(i.value!==cur)toast('Saved')}catch(e){toast(em(e),'err')}}
-   await masterLoad();masterRender(v)};
-  i.onkeydown=e=>{if(e.key==='Enter')fin(true);if(e.key==='Escape')fin(false)};
-  i.onblur=()=>fin(true)});
+ bindInputs(v);
+}
+const FXL={labour:'Labour cost',consumable:'Consumable',repair:'Repair & Maintenance',safety:'Safety',power:'Power cost',diesel:'Fuel (diesel) cost',tins:'Production (tins)',mandays:'Mandays'};
+function bindInputs(v){
+ const mw=$('#main');
+ mw.onmouseover=e=>{const t=e.target.closest&&e.target.closest('[data-fx]');const x=$('#fxt');if(t&&x)x.textContent=t.dataset.fx};
+ MS.v=v;if(!mw._fx){mw._fx=1;mw.addEventListener('focusin',e=>{const i=e.target;if(i.dataset&&i.dataset.f&&$('#fxt'))$('#fxt').textContent=(FXL[i.dataset.f]||i.dataset.f)+' · '+ml(i.dataset.m)+': the box shows the live figure; type to change it. Clear the box to go back to the live figure.'});
+ mw.addEventListener('focusout',async e=>{const i=e.target;if(MS.refreshing||!i.dataset||!i.dataset.f)return;const k=i.dataset.m+'|'+i.dataset.f;if(!MS.dirty.has(k))return;MS.dirty.delete(k);
+  try{if(i.value==='')await R('master_clear',{p_month:i.dataset.m,p_field:i.dataset.f});
+   else await R('master_save',{p_month:i.dataset.m,p_field:i.dataset.f,p_value:+i.value,p_note:'Typed on master tab'});
+   toast('Saved')}catch(er){toast(em(er),'err')}
+  await masterLoad();document.querySelectorAll('#main input[data-f]').forEach(x=>{if(MS.dirty.has(x.dataset.m+'|'+x.dataset.f)){const r=MS.map[x.dataset.m];if(r)r[x.dataset.f]=x.value===''?null:+x.value}});masterRefresh(MS.v)})}
+
+ document.querySelectorAll('#main input[data-f]').forEach(i=>{
+  i.oninput=()=>{const cl=i.value.replace(/[^0-9.]/g,'');if(cl!==i.value){const p=i.selectionStart-1;i.value=cl;try{i.setSelectionRange(p,p)}catch(e){}}const r=MS.map[i.dataset.m];if(r){MS.dirty.add(i.dataset.m+'|'+i.dataset.f);r[i.dataset.f]=i.value===''?null:+i.value;masterRefresh(v)}};
+  i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const all=[...document.querySelectorAll('#main input[data-f]')],k=all.indexOf(i);const nx=all[e.shiftKey?k-1:k+1];if(nx){nx.focus();nx.select()}}}});
+}
+/* redraw the tables while typing, keeping the cursor where it was */
+function masterRefresh(v){
+ const ae=document.activeElement,key=ae&&ae.dataset&&ae.dataset.f?ae.dataset.m+'|'+ae.dataset.f:null,pos=key?ae.selectionStart:null;
+ const sy=window.scrollY,mw=$('.mtw'),sl=mw?mw.scrollLeft:0,st_=mw?mw.scrollTop:0;
+ const el=$('.mtw');if(!el)return;MS.refreshing=true;el.innerHTML=masterBody(v);masterBodyBind(v);bindInputs(v);
+ if(key){const [m,f]=key.split('|');const n_=document.querySelector(`#main input[data-m="${m}"][data-f="${f}"]`);if(n_){n_.focus();try{n_.setSelectionRange(pos,pos)}catch(e){}}}
+ const m2=$('.mtw');if(m2){m2.scrollLeft=sl;m2.scrollTop=st_}window.scrollTo(0,sy);MS.refreshing=false;
+}
+function masterBody(v){
+ return v==='expm'?expTable()+`<div class="cptb" id="cptt"><b>${MS.cpt?'▾':'▸'} Cost per tin, month wise</b><span class="btn">${MS.cpt?'Collapse':'Expand'}</span><span class="note">All five expense rows of the month over the month's tins. Also the third sheet of the Excel download.</span></div>`+(MS.cpt?cptTable():''):pfTable()+mdTable();
+}
+function masterBodyBind(v){
+ const tg=$('#cptt');if(tg)tg.onclick=()=>{MS.cpt=!MS.cpt;try{localStorage.setItem('cpMasterCpt',MS.cpt?'1':'0')}catch(e){}masterRender(v);if(MS.cpt){const t=$('#cptt');if(t)t.scrollIntoView({block:'start'})}};
 }
 function masterRender(v){
- const body=v==='expm'?expTable()+`<div class="cptb" id="cptt"><b>${MS.cpt?'▾':'▸'} Cost per tin, month wise</b><span class="btn">${MS.cpt?'Collapse':'Expand'}</span><span class="note">All five expense rows of the month over the month's tins. Also the third sheet of the Excel download.</span></div>`+(MS.cpt?cptTable():''):pfTable();
- $('#main').innerHTML=masterBar(v)+`<div class="mtw">${body}</div>`;masterBind(v);
- const tg=$('#cptt');if(tg)tg.onclick=()=>{MS.cpt=!MS.cpt;try{localStorage.setItem('cpMasterCpt',MS.cpt?'1':'0')}catch(e){}masterRender(v);if(MS.cpt){const t=$('#cptt');if(t)t.scrollIntoView({block:'start'})}};
+ $('#main').innerHTML=masterBar(v)+`<div class="mtw">${masterBody(v)}</div>`;masterBind(v);masterBodyBind(v);
+}
+function mdTable(){
+ const a=MS.data.fy,b=MS.data.prev,P=mths(b),C=mths(a);
+ const tot=ms=>sumN(ms.map(m=>mval(m,'mandays')));
+ return `<div class="note" style="margin-top:14px"><b>MANDAYS, month wise.</b> Payroll live figure; in Manual mode type it where payroll has no attendance.</div><table class="mt" style="width:auto;min-width:460px"><tr><th class="h1">MONTH</th><th class="h1">${FYL(b).replace('FY','FINANCIAL YEAR')}</th><th class="h1">${FYL(a).replace('FY','FINANCIAL YEAR')}</th></tr>`
+  +P.map((m,k)=>`<tr><td class="sk">${MFULL[k].toUpperCase()}</td>${mtd(m,'mandays',mval(m,'mandays'),{edit:true,fmt:v=>fx(v,1)})}${mtd(C[k],'mandays',mval(C[k],'mandays'),{edit:true,fmt:v=>fx(v,1)})}</tr>`).join('')
+  +`<tr class="tt"><td>OVERALL</td><td data-fx="= SUM of the 12 months">${fx(tot(P),1)}</td><td data-fx="= SUM of the 12 months">${fx(tot(C),1)}</td></tr></table>`;
 }
 function expTable(){
  const a=MS.data.fy,b=MS.data.prev,mp=expModel(b),mc=expModel(a);
  const cmp=(e1,t1,e2,t2)=>{const c1=divN(e1,t1),c2=divN(e2,t2);return `<td>${fx(subN(e1,e2))}</td><td>${fx(subN(t1,t2))}</td><td>${fx(c1==null||c2==null?null:c1-c2,3)}</td>`};
- const tot=(label,P,C)=>`<tr class="tt"><td colspan="3">${label}</td><td>${fx(P.exp)}</td><td>${fx(P.tins)}</td><td>${fx(divN(P.exp,P.tins),3)}</td><td>${fx(C.exp)}</td><td>${fx(C.tins)}</td><td>${fx(divN(C.exp,C.tins),3)}</td>${cmp(P.exp,P.tins,C.exp,C.tins)}</tr>`;
+ const tot=(label,P,C)=>`<tr class="tt"><td colspan="3">${label}</td><td data-fx="= SUM of the expenses above">${fx(P.exp)}</td><td data-fx="= SUM of the production above">${fx(P.tins)}</td><td data-fx="= EXPENSES ÷ PRODUCTION QTY">${fx(divN(P.exp,P.tins),3)}</td><td data-fx="= SUM of the expenses above">${fx(C.exp)}</td><td data-fx="= SUM of the production above">${fx(C.tins)}</td><td data-fx="= EXPENSES ÷ PRODUCTION QTY">${fx(divN(C.exp,C.tins),3)}</td>${cmp(P.exp,P.tins,C.exp,C.tins)}</tr>`;
  let h=`<table class="mt"><tr><th colspan="3" class="x"></th><th colspan="3" class="h1">${FYL(b).replace('FY','FINANCIAL YEAR')}</th><th colspan="3" class="h1">${FYL(a).replace('FY','FINANCIAL YEAR')}</th><th colspan="3" class="h1">COMPARISON (${FYL(b).slice(3)} vs ${FYL(a).slice(3)})</th></tr>
  <tr><th class="h2">QUARTER</th><th class="h2">MONTH</th><th class="h2">EXPENSES SPLIT</th>${['EXPENSES','PRODUCTION QTY','COST/TIN'].concat(['EXPENSES','PRODUCTION QTY','COST/TIN'],['EXPENSES','PRODUCTION QTY','COST/TIN']).map(x=>`<th class="h2">${x}</th>`).join('')}</tr>`;
  for(let q=0;q<4;q++){
@@ -859,8 +844,8 @@ function expTable(){
     const pe=P.cat[cat],ce=C.cat[cat];const ed=cat!=='power_fuel';
     const ptn=divN(pe,P.tins),ctn=divN(ce,C.tins);
     h+='<tr>'+(i===0&&ci===0?`<td class="qc" rowspan="15">Q${q+1}</td>`:'')+(ci===0?`<td class="mc" rowspan="5">${MFULL[k]}</td>`:'')+`<td class="sp">${c[1]}</td>`
-     +mtd(P.m,cat,pe,{edit:ed})+(ci===0?mtd(P.m,'tins',P.tins,{edit:true,rs:5}):'')+`<td>${fx(ptn,3)}</td>`
-     +mtd(C.m,cat,ce,{edit:ed})+(ci===0?mtd(C.m,'tins',C.tins,{edit:true,rs:5}):'')+`<td>${fx(ctn,3)}</td>`
+     +mtd(P.m,cat,pe,{edit:ed})+(ci===0?mtd(P.m,'tins',P.tins,{edit:true,rs:5}):'')+`<td data-fx="= EXPENSES ÷ PRODUCTION QTY">${fx(ptn,3)}</td>`
+     +mtd(C.m,cat,ce,{edit:ed})+(ci===0?mtd(C.m,'tins',C.tins,{edit:true,rs:5}):'')+`<td data-fx="= EXPENSES ÷ PRODUCTION QTY">${fx(ctn,3)}</td>`
      +`<td>${fx(subN(pe,ce))}</td>`+(ci===0?`<td rowspan="5">${fx(subN(P.tins,C.tins))}</td>`:'')+`<td>${fx(ptn==null||ctn==null?null:ptn-ctn,3)}</td></tr>`;
    });
   }
@@ -888,10 +873,10 @@ function pfTable(){
  const row=(m)=>{const p=mval(m,'power'),d=mval(m,'diesel'),t=mval(m,'power_fuel'),n_=mval(m,'tins');return {m,p,d,t,n:n_,c:divN(t,n_)}};
  const rp=P.map(row),rc=C.map(row);
  const yr=(arr)=>{const p=sumN(arr.map(x=>x.p)),d=sumN(arr.map(x=>x.d)),t=sumN(arr.map(x=>x.t)),n_=sumN(arr.map(x=>x.n));return {p,d,t,n:n_,c:divN(t,n_)}};
- const cells=(x,Mo,edit)=>`${x.m?mtd(x.m,'power',x.p,{edit,fmt:v=>v==null?'-':'₹ '+n(v)}):`<td>${x.p==null?'-':'₹ '+n(x.p)}</td>`}${x.m?mtd(x.m,'diesel',x.d,{edit,fmt:v=>v==null?'-':'₹ '+n(v)}):`<td>${x.d==null?'-':'₹ '+n(x.d)}</td>`}<td>${x.t==null?'-':'₹ '+n(x.t)}</td>${x.m?mtd(x.m,'tins',x.n,{edit}):`<td>${fx(x.n)}</td>`}<td class="g1">${fx(x.c,3)}</td>`;
+ const cells=(x,Mo,edit)=>`${x.m?mtd(x.m,'power',x.p,{edit,fmt:v=>v==null?'-':'₹ '+n(v)}):`<td>${x.p==null?'-':'₹ '+n(x.p)}</td>`}${x.m?mtd(x.m,'diesel',x.d,{edit,fmt:v=>v==null?'-':'₹ '+n(v)}):`<td>${x.d==null?'-':'₹ '+n(x.d)}</td>`}<td data-fx="= POWER COST + FUEL (DIESEL) COST">${x.t==null?'-':'₹ '+n(x.t)}</td>${x.m?mtd(x.m,'tins',x.n,{edit}):`<td>${fx(x.n)}</td>`}<td class="g1" data-fx="= POWER AND FUEL COST ÷ TOTAL PRODUCTION">${fx(x.c,3)}</td>`;
  const hdr=(t1,t2)=>`<tr><th class="x"></th><th colspan="6" class="h2">${t1}</th><th colspan="5" class="h2">${t2}</th><th class="x"></th></tr>
  <tr>${['QUARTERS','MONTH','POWER COST in Rs','FUEL (DIESEL) COST in Rs','POWER AND FUEL COST','TOTAL PRODUCTION','POWER COST / TIN','POWER COST in Rs','FUEL (DIESEL) COST in Rs','POWER AND FUEL COST','TOTAL PRODUCTION','POWER COST / TIN','Variance'].map(x=>`<th class="h1">${x}</th>`).join('')}</tr>`;
- const vr=(x,y)=>`<td>${x.c==null||y.c==null?'-':(x.c-y.c).toFixed(3)}</td>`;
+ const vr=(x,y)=>`<td data-fx="= previous year COST/TIN − current year COST/TIN">${x.c==null||y.c==null?'-':(x.c-y.c).toFixed(3)}</td>`;
  let h=`<table class="mt">${hdr(FYL(b).replace('FY','FINANCIAL YEAR - ').replace('-','- '),FYL(a).replace('FY','FINANCIAL YEAR - ').replace('-','- '))}`;
  for(let k=0;k<12;k++){h+='<tr>'+(k%3===0?`<td class="sk" rowspan="3">Q${k/3+1}</td>`:'')+`<td class="sk">${MFULL[k].toUpperCase()}</td>`+cells(rp[k],0,true).replace(/^/,'')+cells(rc[k],1,true)+vr(rp[k],rc[k])+'</tr>'}
  const YP=yr(rp),YC_=yr(rc);
