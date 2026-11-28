@@ -653,8 +653,10 @@ async function empForm(e,reload){const isNew=!e;
 
 
 VIEWS.dashboard=async()=>{
+ try{const mm=await sb.schema('payroll_api').rpc('mode_get');if(!mm.error&&mm.data)window._dmode=String(mm.data).toUpperCase()==='ULTRA'?'ultra':'lite'}catch(_){}
+ const ADM=payRole()==='admin';
  const today=new Date(Date.now()+19800000).toISOString().slice(0,10);
- $('#main').innerHTML=`<div class="card"><div class="row"><label>Day<input type="date" id="dd" value="${window._dd||today}"></label><label>Contractor<select id="dc"><option value="">All contractors</option></select></label><button class="b" id="dg">${bt('open','Show')}</button><div class="seg" style="margin-left:auto"><button class="${window._dmode==='ultra'?'':'on'}" id="mL">LITE</button><button class="${window._dmode==='ultra'?'on':''}" id="mU">ULTRA</button></div></div></div><div id="dbody"></div>`;
+ $('#main').innerHTML=`<div class="card"><div class="row"><label>Day<input type="date" id="dd" value="${window._dd||today}"></label><label>Contractor<select id="dc"><option value="">All contractors</option></select></label><button class="b" id="dg">${bt('open','Show')}</button><div class="seg" style="margin-left:auto" title="${ADM?'Shared mode for Dashboard, MANDAYS and Cost per Tin':'Mode is set by the Administrator'}"><button class="${window._dmode==='ultra'?'':'on'}" id="mL">LITE</button><button class="${window._dmode==='ultra'?'on':''}" id="mU">ULTRA</button></div>${ADM?'':'<span class="mut" style="font-size:11px">set by Administrator</span>'}</div></div><div id="dbody"></div>`;
  const fmt=n=>'₹ '+Math.round(n).toLocaleString('en-IN');
  const LS=k=>{try{return JSON.parse(localStorage.getItem('cpdash')||'{}')[k]}catch(_){return undefined}};
  const LW=(k,v)=>{try{const o=JSON.parse(localStorage.getItem('cpdash')||'{}');o[k]=v;localStorage.setItem('cpdash',JSON.stringify(o))}catch(_){}};
@@ -667,7 +669,7 @@ VIEWS.dashboard=async()=>{
   const rl=X.rules||{},hpd=Number(rl.day_hours)||8,div=Number(rl.monthly_ot_fixed_days)||26,otm=Number(rl.ot_multiplier_non_migrant)||1.5,hx=Number(rl.holiday_premium_basic_x)||2;
   const isSun=new Date(d+'T00:00:00Z').getUTCDay()===0;
   const terms=Object.fromEntries((X.terms||[]).map(t=>[t.contractor_id,t]));
-  const by={};const Z=()=>({mp:0,fp:0,ma:0,fa:0,off:0,ne:0,pay:0,ot:0,eb:0,gx:0,wm:0,wf:0,oh:0});const U=window._dmode==='ultra';
+  const by={};const Z=()=>({mp:0,fp:0,ma:0,fa:0,off:0,ne:0,pay:0,ot:0,eb:0,gx:0,wm:0,wf:0,oh:0,xo:0,xn:0,xw:0,xc:0});const U=window._dmode==='ultra';
   const T=Z();let any=0,abs7=0,pend=0;
   (X.emps||[]).forEach(e=>{if(sel.value&&String(e.contractor_id)!==sel.value)return;if(e.doj&&e.doj>d)return;if(e.inactive_from&&e.inactive_from<=d)return;any++;
    const R=by[e.contractor_id]||(by[e.contractor_id]=Object.assign(Z(),{name:e.contractor}));const f=(e.gender||'').toLowerCase().startsWith('f');
@@ -684,13 +686,15 @@ VIEWS.dashboard=async()=>{
    else if(code==='OFF')add('off');
    else if(code==='L'||code==='LOP'||code==='ESIL'){add(f?'fa':'ma');let n=0;for(let q=dn;q>=1;q--){const z=(e.days||[]).find(y=>y.d===q);if(z&&(z.code==='L'||z.code==='LOP'||z.code==='ESIL'))n++;else break}if(n>=7)abs7++}
    else add('ne')});
+  if(U){try{CACHE.ex=CACHE.ex||{};if(!CACHE.ex[d])CACHE.ex[d]=(await call(P('mandays_ultra_day',{p_date:d})))||[];
+    (CACHE.ex[d]).forEach(z=>{const R=by[z.contractor_id];if(!R)return;R.xo+=+z.paid_off;R.xn+=+z.nh_paid;R.xw+=+z.nh_worked;R.xc+=+z.comp;T.xo+=+z.paid_off;T.xn+=+z.nh_paid;T.xw+=+z.nh_worked;T.xc+=+z.comp})}catch(_){toast('Could not read ULTRA extras for this day',true)}}
   const rows=Object.entries(by).map(([id,R])=>Object.assign(R,{id})).sort((a,b)=>a.name.localeCompare(b.name));
   if(!any){$('#dbody').innerHTML='<div class="card"><span class="mut">No employees on the roster for this day. Open the month on the Months page first.</span></div>';return}
   let PF=0,ES=0,SV=0;rows.forEach(r=>{const t=terms[r.id]||{};r.pf=Math.round(r.eb*(Number(t.epf_rate)||0));r.es=Math.round(r.gx*(Number(t.esic_rate)||0));r.sv=Math.round(t.service_mode==='percent_gross'?r.gx*(Number(t.service_rate)||0):t.service_mode==='per_man_day'?(r.mp+r.fp)*(Number(t.service_rate)||0):0);PF+=r.pf;ES+=r.es;SV+=r.sv});
-  const P1=T.mp+T.fp,A1=T.ma+T.fa,MK='dm|'+d;const MD=r=>(r.mp+r.fp)+r.oh/hpd,q1=n=>(Math.round(n*10)/10).toLocaleString('en-IN',{maximumFractionDigits:1});
+  const P1=T.mp+T.fp,A1=T.ma+T.fa,MK='dm|'+d;const MD=r=>(r.mp+r.fp)+r.oh/hpd+(U?r.xo+r.xn+r.xw+r.xc:0),q1=n=>(Math.round(n*10)/10).toLocaleString('en-IN',{maximumFractionDigits:1});
   $('#dbody').innerHTML=`<div class="mst" style="max-width:none;grid-template-columns:repeat(${U?8:6},minmax(130px,1fr))">
-   <div class="c"><small>Present today</small><b class="good">${P1}</b></div><div class="c"><small>Total OT hours</small><b>${q1(T.oh)}</b></div><div class="c"><small>Today's mandays</small><b class="good">${q1(MD(T))}</b><small style="display:block;margin-top:2px">${P1} + ${q1(T.oh)}h ÷ ${hpd}</small></div><div class="c"><small>Absent today</small><b class="red">${A1}</b></div>
-   <div class="c"><small>Weekly off / leave</small><b class="mute">${T.off}</b></div><div class="c"><small>Today's pay (wages + OT)</small><b>${fmt(T.pay)}</b></div>${U?`<div class="c"><small>Not entered</small><b class="mute">${T.ne}</b></div><div class="c"><small>Total spend today</small><b id="kspend">-</b></div>`:''}</div>
+   <div class="c"><small>Present today</small><b class="good">${P1}</b></div><div class="c"><small>Total OT hours</small><b>${q1(T.oh)}</b></div><div class="c"><small>Today's mandays</small><b class="good">${q1(MD(T))}</b><small style="display:block;margin-top:2px">${P1} + ${q1(T.oh)}h ÷ ${hpd}${U?` + ${q1(T.xo+T.xn+T.xw+T.xc)} extra`:''}</small></div><div class="c"><small>Absent today</small><b class="red">${A1}</b></div>
+   <div class="c"><small>Weekly off / holiday</small><b class="mute">${T.off}</b>${U?`<small style="display:block;margin-top:2px">paid ${q1(T.xo+T.xn)} · unpaid ${q1(Math.max(0,T.off-T.xo-T.xn))}</small>`:''}</div><div class="c"><small>Today's pay (wages + OT)</small><b>${fmt(T.pay)}</b></div>${U?`<div class="c"><small>Not entered</small><b class="mute">${T.ne}</b></div><div class="c"><small>Total spend today</small><b id="kspend">-</b></div>`:''}</div>
   <div class="card dk"><div class="scroll"><table><thead><tr><th>Contractor</th><th>Male present</th><th>Female present</th><th>Present</th><th>OT hours</th><th>Mandays</th><th>Male absent</th><th>Female absent</th><th>Absent</th>${U?'<th>Off / holiday</th><th>Not entered</th><th>Male pay</th><th>Female pay</th>':''}<th>Pay today</th></tr></thead><tbody>
   ${rows.map(r=>`<tr><td style="text-align:left">${esc(r.name)}</td><td>${r.mp}</td><td>${r.fp}</td><td><b>${r.mp+r.fp}</b></td><td>${q1(r.oh)}</td><td><b>${q1(MD(r))}</b></td><td class="red">${r.ma}</td><td class="red">${r.fa}</td><td class="red"><b>${r.ma+r.fa}</b></td>${U?`<td>${r.off}</td><td>${r.ne}</td><td style="text-align:right">${fmt(r.wm)}</td><td style="text-align:right">${fmt(r.wf)}</td>`:''}<td style="text-align:right">${fmt(r.pay)}</td></tr>`).join('')}
   <tr class="tot" style="font-weight:700"><td style="text-align:left">Total</td><td>${T.mp}</td><td>${T.fp}</td><td>${P1}</td><td>${q1(T.oh)}</td><td>${q1(MD(T))}</td><td class="red">${T.ma}</td><td class="red">${T.fa}</td><td class="red">${A1}</td>${U?`<td>${T.off}</td><td>${T.ne}</td><td style="text-align:right">${fmt(T.wm)}</td><td style="text-align:right">${fmt(T.wf)}</td>`:''}<td style="text-align:right">${fmt(T.pay)}</td></tr></tbody></table></div></div>
@@ -701,7 +705,8 @@ VIEWS.dashboard=async()=>{
    <div class="dl"><span>Present today</span><b>${P1}</b></div>
    <div class="dl"><span>OT hours today</span><b>${q1(T.oh)} hrs</b></div>
    <div class="dl"><span>Mandays from OT <span class="hint">${q1(T.oh)} hrs ÷ ${hpd}</span></span><b>${q1(T.oh/hpd)}</b></div>
-   <div class="dl hi"><span>Total mandays <span class="hint">${P1} + ${q1(T.oh/hpd)}</span></span><b>${q1(MD(T))}</b></div></div>
+   ${U?`<div class="dl"><span>Paid weekly OFF days <span class="hint">Paid Weekly Off = Yes</span></span><b>${q1(T.xo)}</b></div><div class="dl"><span>NH / PH paid days <span class="hint">eligible, not forfeited</span></span><b>${q1(T.xn)}</b></div><div class="dl"><span>Worked on NH / PH <span class="hint">+1 each</span></span><b>${q1(T.xw)}</b></div><div class="dl"><span>Comp-off earned <span class="hint">full Sun–Sat week, all 7 days P</span></span><b>${q1(T.xc)}</b></div>`:''}
+   <div class="dl hi"><span>Total mandays <span class="hint">${P1} + ${q1(T.oh/hpd)}${U?` + ${q1(T.xo+T.xn+T.xw+T.xc)}`:''}</span></span><b>${q1(MD(T))}</b></div></div>
    <div class="dbx"><h3>Manual entries</h3>
    <div class="dl"><span>Per day van amount <span class="hint">₹ for the day</span></span><input class="n" type="number" min="0" id="mvd"></div>
    <details class="dsv"><summary class="dl"><span>Per man-day van <span class="hint">₹ per head × <b id="mvh">${P1}</b> present · click to expand</span></span><span onclick="event.stopPropagation();event.preventDefault()" class="vr"><b id="mvt">-</b><input class="n" type="number" min="0" id="mvm" placeholder="Rate"></span></summary><div id="mvb"></div></details>
@@ -723,7 +728,8 @@ VIEWS.dashboard=async()=>{
    try{const {data,error}=await sb.schema('pms_api').rpc('tins_produced',{p_date:d});if(error)throw error;if($('#dd').value!==d)return;
     const n=Number(data)||0;mt.value=n;mt.readOnly=true;mt.title='Taken from PMS Production (CAN) for this day';h.textContent=n?'from PMS production · '+d:'no CAN production entered in PMS for '+d;calc()}
    catch(_){if($('#dd').value!==d)return;mt.readOnly=false;h.textContent='PMS not connected yet · type manually'}})()}
- $('#mL').onclick=()=>{window._dmode='lite';VIEWS.dashboard()};$('#mU').onclick=()=>{window._dmode='ultra';VIEWS.dashboard()};
+ const setM=async v=>{if(!ADM){toast('Only the Administrator can change the mode',true);return}try{await call(P('mode_set',{p_mode:v}),'Mode set to '+v+' for Dashboard, MANDAYS and Cost per Tin');window._dmode=v.toLowerCase();VIEWS.dashboard()}catch(_){}};
+ $('#mL').onclick=()=>setM('LITE');$('#mU').onclick=()=>setM('ULTRA');
  $('#dg').onclick=()=>load().catch(e=>toast(cleanErr(e.message||String(e)),true));$('#dd').onchange=$('#dg').onclick;$('#dc').onchange=$('#dg').onclick;
  await load()};
 VIEWS.status=async()=>{
@@ -2071,7 +2077,8 @@ VIEWS.slip=async()=>{await reportShell('Salary slip');$('#rx').remove();let rows
    if(preview){const m=modal(`<style>${SLIPCSS}.doc{page-break-after:auto}</style>${out[0]}<div class="row" style="margin-top:10px"><button class="b g" id="pp">${bt('print','Print / Save as PDF')}</button><button class="b l" id="pc" style="color:#0b2a5e;border-color:#0b2a5e">${bt('x','Close')}</button></div>`);m.querySelector('#pc').onclick=()=>m.remove();m.querySelector('#pp').onclick=()=>slipPrint(out)}else slipPrint(out)};
   $('#sp').onclick=()=>{const ids=[...document.querySelectorAll('.sk:checked')].map(k=>k.closest('tr').dataset.e);if(!ids.length)return toast('Tick employees first',true);if(ids.length>60&&!confirm('Print '+ids.length+' slips? This may take a minute.'))return;build(ids,false)}};
  $('#rg').onclick=show;show()};
-function slipPrint(list){const w=window.open('','_blank');if(!w)return toast('Please allow pop-ups to print',true);w.document.write(`<html><head><title>Salary slips</title><style>@page{size:A4;margin:8mm}${SLIPCSS}</style></head><body>${list.join('')}</body></html>`);w.document.close();w.focus();setTimeout(()=>w.print(),500)}
+function slipPrint(list){const w=window.open('','_blank');if(!w)return toast('Please allow pop-ups to print',true);w.document.write(`<html><head><title>Salary slips</title><style>@page{size:A4;margin:8mm}${SLIPCSS}.topbar{padding-right:76px!important}
+</style></head><body>${list.join('')}</body></html>`);w.document.close();w.focus();setTimeout(()=>w.print(),500)}
 
 /* ===== holidays (edit / delete / add, by year) ===== */
 let HYEAR=new Date().getFullYear();
